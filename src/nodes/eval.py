@@ -100,12 +100,6 @@ def _llm_score(storyboard: dict[str, Any]) -> dict[str, Any]:
         user=user,
         json_mode=True,
         max_tokens=400,
-        # In offline mode, return a result that mirrors the heuristic
-        mock={"ctr_pct": 3.4, "rationale": [
-            "Hook is concise and culturally warm",
-            "Arabic voiceover matches KSA audio expectations",
-            "Single-product focus (Ajwa dates) avoids mosaic underperformance",
-        ]},
     )
 
 

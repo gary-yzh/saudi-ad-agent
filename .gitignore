@@ -1,10 +1,36 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+.pytest_cache/
+
+# Virtual environments
 .venv/
+.venv-*/
 venv/
+env/
+
+# Secrets — never commit
 .env
-.DS_Store
+.env.local
+
+# Run artefacts (regenerated each invocation)
 outputs/runs/
+
+# Logs
 *.log
+
+# Editors / OS
+.DS_Store
 .idea/
 .vscode/
+*.swp
+
+# macOS metadata sometimes shipped in zips
+__MACOSX/
+
+# Build / packaging
+*.zip
+build/
+dist/
+*.egg-info/

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saudi Ad Agent</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>Saudi Ad Agent</h1>
+        <p class="subtitle">Brief → Storyboard → Real Assets → CTR Estimate</p>
+      </div>
+    </div>
+    <div id="mode-badge" class="mode-badge unconfigured" title="Configure all three keys to run.">UNCONFIGURED</div>
+  </header>
+
+  <main class="grid">
+    <!-- LEFT: Form -->
+    <section class="card form-card">
+      <h2>Customer Brief</h2>
+      <form id="brief-form" autocomplete="off">
+        <label>
+          <span>Brief</span>
+          <textarea id="brief" rows="6" required minlength="10"
+            placeholder="e.g. Promote our premium Ajwa dates collection for the upcoming Ramadan campaign..."></textarea>
+        </label>
+        <div class="row">
+          <label>
+            <span>Locale</span>
+            <select id="locale">
+              <option value="ar-SA" selected>ar-SA — Arabic (Saudi)</option>
+              <option value="ar-AE">ar-AE — Arabic (UAE)</option>
+              <option value="en-SA">en-SA — English (Saudi)</option>
+              <option value="zh-CN">zh-CN — Chinese</option>
+            </select>
+          </label>
+          <label>
+            <span>Audience</span>
+            <input id="audience" type="text" value="Saudi adults 25-45, parents, urban">
+          </label>
+        </div>
+
+        <!-- LLM section -->
+        <details id="llm-section" class="api-section" open>
+          <summary>
+            <span>1 · LLM <em class="muted">(OpenAI-compatible)</em></span>
+            <span id="llm-status" class="api-status missing">missing</span>
+          </summary>
+          <div class="api-body">
+            <label class="api-label">
+              <span>API Key <em class="req">required</em></span>
+              <div class="api-input-row">
+                <input id="api-key" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false">
+                <button type="button" id="toggle-key" class="icon-btn" title="Show / hide">👁</button>
+              </div>
+            </label>
+            <div class="api-row">
+              <label class="api-label">
+                <span>Base URL</span>
+                <input id="base-url" type="text" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false">
+              </label>
+              <label class="api-label">
+                <span>Model</span>
+                <input id="model-name" type="text" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false">
+              </label>
+            </div>
+            <p class="api-hint">
+              Drives Planner / Guardrail-judge / Eval-judge. Works with any OpenAI-compatible endpoint
+              — OpenAI, Volcengine Ark Doubao, DeepSeek, Moonshot, Azure, Ollama …
+            </p>
+          </div>
+        </details>
+
+        <!-- Image + Video section -->
+        <details id="ark-section" class="api-section">
+          <summary>
+            <span>2 · Image + Video <em class="muted">(Volcengine Ark · Doubao)</em></span>
+            <span id="ark-status" class="api-status missing">missing</span>
+          </summary>
+          <div class="api-body">
+            <label class="api-label">
+              <span>Ark API Key <em class="req">required</em></span>
+              <div class="api-input-row">
+                <input id="ark-key" type="password" placeholder="..." autocomplete="off" spellcheck="false">
+                <button type="button" id="toggle-ark-key" class="icon-btn" title="Show / hide">👁</button>
+              </div>
+            </label>
+            <label class="api-label">
+              <span>Ark Base URL</span>
+              <input id="ark-base-url" type="text" placeholder="https://ark.cn-beijing.volces.com/api/v3" autocomplete="off" spellcheck="false">
+            </label>
+
+            <div class="api-subhead">Image · Doubao Seedream</div>
+            <div class="api-row">
+              <label class="api-label">
+                <span>Model</span>
+                <input id="image-model" type="text" placeholder="doubao-seedream-5-0-260128">
+              </label>
+              <label class="api-label">
+                <span>Size</span>
+                <select id="image-size">
+                  <option value="" selected>2K (default)</option>
+                  <option value="1K">1K</option>
+                  <option value="2K">2K</option>
+                  <option value="4K">4K</option>
+                  <option value="1024x1792">1024 × 1792 (9:16)</option>
+                  <option value="1792x1024">1792 × 1024 (16:9)</option>
+                </select>
+              </label>
+            </div>
+            <label class="api-label inline">
+              <input id="image-watermark" type="checkbox">
+              <span>Add image watermark</span>
+            </label>
+
+            <div class="api-subhead">Video · Doubao Seedance</div>
+            <label class="api-label">
+              <span>Model</span>
+              <input id="video-model" type="text" placeholder="doubao-seedance-2-0-260128">
+            </label>
+            <div class="api-row">
+              <label class="api-label">
+                <span>Aspect ratio</span>
+                <select id="video-ratio">
+                  <option value="" selected>9:16 (default)</option>
+                  <option value="9:16">9:16</option>
+                  <option value="16:9">16:9</option>
+                  <option value="1:1">1:1</option>
+                  <option value="4:3">4:3</option>
+                  <option value="3:4">3:4</option>
+                </select>
+              </label>
+              <label class="api-label">
+                <span>Duration (seconds)</span>
+                <input id="video-duration" type="number" min="3" max="15" step="1" placeholder="5">
+              </label>
+            </div>
+            <label class="api-label inline">
+              <input id="video-generate-audio" type="checkbox">
+              <span>Have Seedance generate its own background audio</span>
+            </label>
+            <label class="api-label inline">
+              <input id="video-watermark" type="checkbox">
+              <span>Add video watermark</span>
+            </label>
+            <p class="api-hint warn">
+              ⚠ Video generation typically takes 1–5 minutes per run and bills per second of output.
+            </p>
+          </div>
+        </details>
+
+        <!-- TTS section -->
+        <details id="tts-section" class="api-section">
+          <summary>
+            <span>3 · Voiceover <em class="muted">(ByteDance OpenSpeech · Doubao TTS)</em></span>
+            <span id="tts-status" class="api-status missing">missing</span>
+          </summary>
+          <div class="api-body">
+            <label class="api-label">
+              <span>TTS API Key <em class="req">required</em></span>
+              <div class="api-input-row">
+                <input id="tts-key" type="password" placeholder="..." autocomplete="off" spellcheck="false">
+                <button type="button" id="toggle-tts-key" class="icon-btn" title="Show / hide">👁</button>
+              </div>
+            </label>
+            <div class="api-row">
+              <label class="api-label">
+                <span>TTS URL</span>
+                <input id="tts-url" type="text" placeholder="https://openspeech.bytedance.com/api/v3/tts/unidirectional">
+              </label>
+              <label class="api-label">
+                <span>Resource ID</span>
+                <select id="tts-resource-id">
+                  <option value="" selected>seed-tts-2.0 (default)</option>
+                  <option value="seed-tts-2.0">seed-tts-2.0</option>
+                  <option value="seed-tts-1.0">seed-tts-1.0</option>
+                  <option value="seed-tts-1.0-concurr">seed-tts-1.0-concurr</option>
+                  <option value="seed-icl-2.0">seed-icl-2.0 (voice cloning)</option>
+                  <option value="seed-icl-1.0">seed-icl-1.0</option>
+                </select>
+              </label>
+            </div>
+            <label class="api-label">
+              <span>Speaker (voice ID)</span>
+              <input id="tts-speaker" type="text" placeholder="zh_female_shuangkuaisisi_moon_bigtts">
+            </label>
+
+            <div class="api-subhead">Audio output</div>
+            <div class="api-row">
+              <label class="api-label">
+                <span>Format</span>
+                <select id="tts-format">
+                  <option value="" selected>mp3 (default)</option>
+                  <option value="mp3">mp3</option>
+                  <option value="wav">wav</option>
+                  <option value="pcm">pcm</option>
+                  <option value="ogg_opus">ogg_opus</option>
+                </select>
+              </label>
+              <label class="api-label">
+                <span>Sample rate</span>
+                <select id="tts-sample-rate">
+                  <option value="" selected>24000 (default)</option>
+                  <option value="8000">8000</option>
+                  <option value="16000">16000</option>
+                  <option value="22050">22050</option>
+                  <option value="24000">24000</option>
+                  <option value="32000">32000</option>
+                  <option value="44100">44100</option>
+                  <option value="48000">48000</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="api-subhead">Delivery</div>
+            <div class="api-row">
+              <label class="api-label">
+                <span>Speech rate <em class="muted">(-50 → 100)</em></span>
+                <input id="tts-speech-rate" type="number" min="-50" max="100" step="1" placeholder="0">
+              </label>
+              <label class="api-label">
+                <span>Loudness rate <em class="muted">(-50 → 100)</em></span>
+                <input id="tts-loudness-rate" type="number" min="-50" max="100" step="1" placeholder="0">
+              </label>
+            </div>
+            <div class="api-row">
+              <label class="api-label">
+                <span>Emotion</span>
+                <input id="tts-emotion" type="text" placeholder="e.g. happy, angry, calm">
+              </label>
+              <label class="api-label">
+                <span>Emotion scale <em class="muted">(1 → 5)</em></span>
+                <input id="tts-emotion-scale" type="number" min="1" max="5" step="1" placeholder="4">
+              </label>
+            </div>
+
+            <details class="ds-advanced">
+              <summary>Advanced</summary>
+              <div class="api-row">
+                <label class="api-label">
+                  <span>Tail silence (ms)</span>
+                  <input id="tts-silence-duration" type="number" min="0" max="30000" step="50" placeholder="0">
+                </label>
+                <label class="api-label">
+                  <span>Explicit language</span>
+                  <input id="tts-explicit-language" type="text" placeholder="zh-cn / en / ja / es-mx / id / pt-br …">
+                </label>
+              </div>
+            </details>
+          </div>
+        </details>
+
+        <button type="submit" id="run-btn" disabled>Generate creative</button>
+        <p id="run-gate" class="api-hint warn hidden">Fill in all three required keys to enable Generate.</p>
+      </form>
+      <p class="hint">
+        No idea? <button type="button" id="load-sample" class="link">Load Ajwa dates sample brief</button> ·
+        <button type="button" id="clear-all" class="link">Clear all settings</button>
+      </p>
+    </section>
+
+    <!-- RIGHT: Result -->
+    <section class="card result-card">
+      <div id="placeholder" class="placeholder">
+        <div>
+          <p class="placeholder-title">No run yet</p>
+          <p class="placeholder-sub">Submit a brief once all three keys are configured.</p>
+        </div>
+      </div>
+
+      <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <p class="loading-title">Running pipeline…</p>
+        <p id="loading-sub" class="loading-sub"></p>
+        <ul class="steps" id="steps">
+          <li data-step="rag">Loading brand manual</li>
+          <li data-step="planner">Drafting storyboard (LLM)</li>
+          <li data-step="guardrail">Brand-safety check</li>
+          <li data-step="tool_use">Seedream → Seedance → TTS</li>
+          <li data-step="eval">CTR estimation</li>
+        </ul>
+      </div>
+
+      <div id="result" class="result hidden">
+        <div class="result-header">
+          <div>
+            <span class="status-badge" id="status-badge">pass</span>
+            <span class="run-id" id="run-id"></span>
+          </div>
+          <div class="ctr-block">
+            <div class="ctr-label">CTR estimate</div>
+            <div class="ctr-value" id="ctr-value">—</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Storyboard</h3>
+          <dl class="storyboard">
+            <dt>Hook</dt>            <dd id="sb-hook">—</dd>
+            <dt>Body</dt>            <dd id="sb-body">—</dd>
+            <dt>CTA</dt>             <dd id="sb-cta">—</dd>
+            <dt>Visual prompt</dt>   <dd id="sb-visual">—</dd>
+            <dt>Motion prompt</dt>   <dd id="sb-motion">—</dd>
+            <dt>Voiceover (AR)</dt>  <dd id="sb-vo" class="rtl" lang="ar">—</dd>
+            <dt>Voice ID</dt>        <dd id="sb-voice" class="mono">—</dd>
+          </dl>
+        </div>
+
+        <div id="partial-banner" class="partial-banner hidden"></div>
+
+        <div class="section">
+          <h3>Generated assets</h3>
+          <div class="asset-previews">
+            <figure>
+              <img id="image-preview" alt="generated still" referrerpolicy="no-referrer">
+              <figcaption id="image-caption">Image · Doubao Seedream</figcaption>
+            </figure>
+            <figure>
+              <video id="video-preview" controls preload="metadata" referrerpolicy="no-referrer"></video>
+              <figcaption id="video-caption">Video · Doubao Seedance</figcaption>
+            </figure>
+            <figure class="audio-fig">
+              <audio id="audio-preview" controls></audio>
+              <figcaption id="audio-caption">Voiceover · Doubao TTS</figcaption>
+            </figure>
+          </div>
+          <div class="assets">
+            <div class="asset">
+              <span class="asset-label">Image URL</span>
+              <a id="image-url" class="asset-url" target="_blank" rel="noopener">—</a>
+            </div>
+            <div class="asset">
+              <span class="asset-label">Video URL</span>
+              <a id="video-url" class="asset-url" target="_blank" rel="noopener">—</a>
+            </div>
+            <div class="asset">
+              <span class="asset-label">Audio URL</span>
+              <a id="audio-url" class="asset-url" target="_blank" rel="noopener">—</a>
+            </div>
+          </div>
+          <p class="muted small">
+            Image / video URLs are signed by Volcengine and expire in 24 hours — save what you want to keep.
+            The voiceover is saved on this server under <code>/runs/&lt;run_id&gt;/voice.&lt;format&gt;</code>.
+          </p>
+        </div>
+
+        <div class="section">
+          <h3>Eval</h3>
+          <div class="eval-meta">
+            <span>Status: <strong id="eval-status">—</strong></span>
+            <span>Guardrail: <strong id="guardrail-status">—</strong> (revisions: <span id="guardrail-rev">0</span>)</span>
+          </div>
+          <ul id="eval-notes" class="notes"></ul>
+        </div>
+      </div>
+
+      <div id="error" class="error hidden">
+        <h3>Run failed</h3>
+        <pre id="error-msg"></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    LangGraph · FastAPI · Live mode — real LLM, real Doubao Seedream / Seedance / TTS calls.
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

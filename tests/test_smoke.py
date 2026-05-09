@@ -1,11 +1,13 @@
 """End-to-end smoke test.
 
-Runs the full LangGraph pipeline with no API key and asserts that:
-- every node executes (the log has 5+ entries),
-- the storyboard, asset URLs, and CTR estimate are populated,
-- the deterministic guardrail catches an obviously non-compliant brief.
+The pure-function tests (keyword guardrail) always run. The full graph test
+requires an OpenAI-compatible LLM key, an Ark key for image+video, and a
+ByteDance OpenSpeech key for TTS — without all three, it's auto-skipped so
+CI stays green without secrets.
 
 Run with: `pytest -q tests/`
+Run live: set OPENAI_API_KEY (+ OPENAI_BASE_URL / OPENAI_MODEL),
+          ARK_API_KEY, and TTS_API_KEY (+ TTS_SPEAKER) before invoking.
 """
 from __future__ import annotations
 
@@ -13,36 +15,40 @@ import os
 
 import pytest
 
-# Make sure offline-mock mode is active for the test.
-os.environ.pop("ANTHROPIC_API_KEY", None)
-
-from src.graph import build_graph  # noqa: E402
-from src.nodes.guardrail import _keyword_check  # noqa: E402
+from src.nodes.guardrail import _keyword_check
 
 
-def _initial(brief: str) -> dict:
-    return {
-        "brief": brief,
-        "locale": "ar-SA",
-        "target_audience": "Saudi adults 25-45",
+def _live_keys_present() -> bool:
+    return all(os.getenv(k) for k in ("OPENAI_API_KEY", "ARK_API_KEY", "TTS_API_KEY"))
+
+
+@pytest.mark.skipif(
+    not _live_keys_present(),
+    reason="set OPENAI_API_KEY + ARK_API_KEY + TTS_API_KEY to run the live e2e",
+)
+def test_happy_path_runs_end_to_end():
+    from src.graph import build_graph
+
+    initial: dict = {
+        "brief": (
+            "Promote our new wireless noise-cancelling headphones. "
+            "Highlight all-day comfort and crystal-clear calls. "
+            "Target young professionals working in cafes."
+        ),
+        "locale": "en-US",
+        "target_audience": "Urban professionals 25-35",
         "errors": [],
         "log": [],
         "guardrail_revision_count": 0,
-        "run_id": "test",
+        "run_id": "pytest-smoke",
     }
-
-
-def test_happy_path_runs_end_to_end():
-    graph = build_graph()
-    final = graph.invoke(_initial(
-        "Promote our premium Ajwa dates collection for Ramadan iftar gifting."
-    ))
+    final = build_graph().invoke(initial)
     assert final["storyboard"]["hook"]
-    assert final["image_url"].startswith("https://mock.seedream.")
-    assert final["video_url"].startswith("https://mock.seedance.")
-    assert final["audio_url"].startswith("https://mock.seedspeech.")
+    assert final["image_url"], "Seedream returned no image url"
+    assert final["video_url"], "Seedance returned no video url"
+    assert final["audio_url"], "TTS returned no audio path"
     assert 0 < final["ctr_estimate"] < 1
-    # 5 nodes + tool_use logs once + every other node once = at least 5 entries
+    # rag + planner + guardrail + tool_use + eval ≥ 5 entries
     assert len(final["log"]) >= 5
 
 
@@ -56,7 +62,6 @@ def test_guardrail_catches_alcohol_in_storyboard():
         "voiceover": "أهلاً، اشتري الخمر الآن.",
     }
     violations = _keyword_check(bad, ramadan=False)
-    # Should catch wine, beer, champagne, and the Arabic word for alcohol.
     joined = " ".join(violations).lower()
     assert "wine" in joined
     assert "beer" in joined

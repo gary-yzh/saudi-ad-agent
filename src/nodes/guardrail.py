@@ -104,7 +104,6 @@ def _llm_judge(storyboard: dict[str, Any], constraints: list[str]) -> dict[str, 
         user=user,
         json_mode=True,
         max_tokens=400,
-        mock={"ok": True, "violations": []},  # offline default: trust layer 1
     )
 
 
