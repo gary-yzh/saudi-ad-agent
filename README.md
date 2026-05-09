@@ -14,7 +14,7 @@
 
 | Capability | Where it lives | What it does |
 | --- | --- | --- |
-| **Web UI** | `server.py` + `web/` | FastAPI server with a single-page HTML/JS form. User pastes brief + three API keys, the page POSTs to `/api/run`, the result panel renders the storyboard, real assets (image / video / audio) and the CTR estimate. |
+| **Web UI** | `server.py` + `web/` | FastAPI server with two pages — a **Run** page (`/`) for brief input and result rendering, and a **Settings** page (`/settings`) for model & API config. Settings persist server-side in `data/app.db` (SQLite); the Run page never sees keys. |
 | **Planner** | `src/nodes/planner.py` | Calls an OpenAI-compatible LLM to turn the customer brief + brand constraints into a storyboard (hook / body / CTA / visual prompt / motion prompt / locale-appropriate voiceover). |
 | **Tool-use** | `src/nodes/tool_use.py` + `src/tools/bytedance_apis.py` | Calls **Doubao Seedream** (sync image), **Doubao Seedance** (async video task + poll), and **Doubao TTS** (HTTP chunked streamed base64). |
 | **RAG** | `src/nodes/rag.py` + `data/brand_manual.md` | Loads the customer's brand manual (Markdown or PDF) and surfaces brand constraints to the planner and guardrail. |
@@ -134,18 +134,31 @@ Run artefacts (`run.json`, `voice.<fmt>`) land in `outputs/runs/<timestamp>/`.
 
 ---
 
-## 4. Configuration (Web UI)
+## 4. Configuration
 
-Three collapsible sections in the form, all values stored in browser
-`localStorage`, never persisted server-side.
+Two pages, two responsibilities:
 
-| Section | Required | Optional knobs |
+- **`/`** (Run page) — brief, locale, audience, Generate button, result panel.
+  Doesn't show any keys; reads `/api/config/status` to gate the button.
+- **`/settings`** (Settings page) — three sections (LLM / Ark / TTS) with
+  every model knob the agent can take. Save button writes to SQLite via
+  `POST /api/config`. On load, `GET /api/config` repopulates the form.
+
+Persistence: `data/app.db` (SQLite, gitignored). The Run handler loads
+the config from SQLite and splats it into a per-request contextvar that
+`src/llm.py` and `src/tools/bytedance_apis.py` read — graph nodes never
+take credentials as parameters.
+
+| Settings section | Required | Optional knobs |
 | --- | --- | --- |
-| **LLM (OpenAI-compatible)** | `API Key` | `Base URL` (e.g. `https://dashscope.aliyuncs.com/compatible-mode/v1` for Qwen, `https://ark.cn-beijing.volces.com/api/v3` for Doubao chat, `https://api.openai.com/v1` for OpenAI), `Model` |
-| **Image + Video (Volcengine Ark / Doubao)** | `Ark API Key` | `Ark Base URL`, image `Model` (default `doubao-seedream-5-0-260128`), `Size` (1K / 2K / 4K / explicit `WxH`), image `Watermark`, video `Model` (default `doubao-seedance-2-0-260128`), `Aspect ratio`, `Duration`, `Generate audio`, video `Watermark` |
-| **Voiceover (ByteDance OpenSpeech / Doubao TTS)** | `TTS API Key` | `TTS URL`, `Resource ID` (`seed-tts-2.0` / `seed-icl-2.0` voice cloning / …), `Speaker`, `Format`, `Sample rate`, `Speech rate`, `Loudness rate`, `Emotion` + scale, `Tail silence`, `Explicit language` |
+| **LLM (OpenAI-compatible)** | `openai_api_key` | `openai_base_url` (e.g. `https://dashscope.aliyuncs.com/compatible-mode/v1` for Qwen, `https://ark.cn-beijing.volces.com/api/v3` for Doubao chat, `https://api.openai.com/v1` for OpenAI), `openai_model` |
+| **Image + Video (Volcengine Ark · Doubao)** | `ark_api_key` | `ark_base_url`, `image_model` (default `doubao-seedream-5-0-260128`), `image_size` (1K / 2K / 4K / explicit `WxH`), `image_watermark`, `video_model` (default `doubao-seedance-2-0-260128`), `video_ratio`, `video_duration`, `video_generate_audio`, `video_watermark` |
+| **Voiceover (ByteDance OpenSpeech · Doubao TTS)** | `tts_api_key` | `tts_url`, `tts_resource_id` (`seed-tts-2.0` / `seed-icl-2.0` voice cloning / …), `tts_speaker`, `tts_format`, `tts_sample_rate`, `tts_speech_rate`, `tts_loudness_rate`, `tts_emotion` + scale, `tts_silence_duration`, `tts_explicit_language` |
 
-The header badge shows `LIVE · {host} + Doubao` when all three keys are filled, `UNCONFIGURED · need …` otherwise; the **Generate** button is gated on having all three.
+The header badge on the Run page shows **READY** when all three required
+keys are configured, **UNCONFIGURED · {missing}** otherwise; the
+**Generate** button is gated on having all three. `POST /api/run` itself
+returns 400 with a redirect-to-settings message if keys aren't set.
 
 ---
 
@@ -185,17 +198,19 @@ Eval notes
 
 ```
 saudi-ad-agent/
-├── server.py                 # FastAPI app — POST /api/run, GET /, /static, /runs
+├── server.py                 # FastAPI app — pages (/ + /settings) + APIs
 ├── main.py                   # CLI entrypoint (rich-formatted)
 ├── requirements.txt
 ├── .env.example
 ├── data/
-│   └── brand_manual.md       # Demo brand manual ("Noor Souq")
+│   ├── brand_manual.md       # Demo brand manual ("Noor Souq")
+│   └── app.db                # SQLite settings store (gitignored)
 ├── docs/
 │   ├── architecture.md
 │   └── demo_video_script.md  # ≤3-min English narration with screen cues
 ├── src/
 │   ├── runtime.py            # Per-request config contextvar (shared by LLM + tool clients)
+│   ├── storage.py            # SQLite key-value persistence for settings
 │   ├── state.py              # AgentState TypedDict
 │   ├── llm.py                # OpenAI-compatible wrapper with retries
 │   ├── graph.py              # LangGraph wiring
@@ -208,9 +223,11 @@ saudi-ad-agent/
 │   └── tools/
 │       └── bytedance_apis.py # Real Doubao clients: Seedream / Seedance / TTS
 ├── web/
-│   ├── index.html            # Single-page UI
-│   ├── styles.css
-│   └── app.js                # Form, localStorage, fetch, progressive step animation
+│   ├── index.html            # Run page — brief + result + pipeline trace
+│   ├── settings.html         # Settings page — 24 model / API knobs
+│   ├── styles.css            # Shared styles (nav, settings, timeline)
+│   ├── app.js                # Run page logic
+│   └── settings.js           # Settings page logic (load/save via /api/config)
 ├── tests/
 │   └── test_smoke.py
 └── outputs/
@@ -221,7 +238,8 @@ saudi-ad-agent/
 
 ## 7. Design choices worth flagging
 
-- **Per-request `contextvars` for credentials** ([src/runtime.py](src/runtime.py)). The LLM and asset clients all read from a single context-local config dict, set by the FastAPI handler at request start and reset on exit. Concurrent requests with different keys never see each other's credentials, and the graph nodes stay pure (don't take credentials as parameters).
+- **Server-side settings persistence in SQLite** ([src/storage.py](src/storage.py)) with a clean separation between Run page and Settings page. The Run page never sees keys; it just calls `POST /api/run` with the brief, and the FastAPI handler loads the saved config from `data/app.db` and pushes it into the per-request contextvar before invoking the graph. The Settings page is the only place keys appear in the DOM.
+- **Per-request `contextvars` for credentials** ([src/runtime.py](src/runtime.py)). The LLM and asset clients all read from a single context-local config dict, set by the request handler at start and reset on exit. Concurrent requests with different keys never see each other's credentials, and the graph nodes stay pure (don't take credentials as parameters).
 - **Auto prompt softening on safety-filter rejections.** Doubao's video moderator is finicky on Saudi imagery (abaya, mosque, Ramadan iftar shots — even neutral phrasings can trip it). On rejection the agent asks the LLM to rewrite the prompt: pass 1 swaps cultural markers for neutral equivalents, pass 2 strips humans entirely and goes product-only. Empirically converts ~80% of moderation hits into successful retries.
 - **Graceful degradation.** If image / video / audio permanently fails after retries, the run still completes with whatever succeeded plus an `errors[]` array. The UI shows a partial-result banner with the error message. Eval still runs on the remaining storyboard and gives a CTR estimate.
 - **TTS audio is served locally**, not via a Doubao URL — the TTS endpoint streams base64 chunks, we collect and write them under `outputs/runs/<id>/voice.<format>`, and the FastAPI server mounts that directory at `/runs/...`. The browser plays it directly.
