@@ -46,6 +46,36 @@
         </div>
       </header>
 
+      <!-- RAG: brand manual PDF upload -->
+      <div class="brand-rag" id="brand-rag">
+        <div class="brand-rag-row" id="brand-rag-empty">
+          <span class="brand-rag-icon">📄</span>
+          <span class="muted small">
+            Upload the customer's brand manual (PDF) so the planner generates
+            a storyboard that follows their palette, modesty rules, sign-off
+            phrasing, etc.
+          </span>
+          <label class="brand-rag-upload">
+            <input type="file" id="brand-rag-file" accept="application/pdf,.pdf">
+            <span>Upload PDF</span>
+          </label>
+        </div>
+        <div class="brand-rag-row hidden" id="brand-rag-loaded">
+          <span class="brand-rag-icon">📎</span>
+          <span class="brand-rag-meta">
+            <strong id="brand-rag-name">—</strong>
+            <span class="muted small" id="brand-rag-stats">—</span>
+          </span>
+          <button type="button" id="brand-rag-replace" class="link">Replace</button>
+          <button type="button" id="brand-rag-remove" class="link link-danger">Remove</button>
+        </div>
+        <div class="brand-rag-row hidden" id="brand-rag-uploading">
+          <span class="brand-rag-icon">⏳</span>
+          <span class="muted small">Parsing PDF…</span>
+        </div>
+        <div class="brand-rag-error hidden" id="brand-rag-error"></div>
+      </div>
+
       <ol id="chat-log" class="chat-log">
         <!-- chat bubbles get appended here -->
       </ol>
@@ -73,6 +103,8 @@
         <h2>2 · Storyboard</h2>
         <span id="sb-stage" class="api-status missing">draft</span>
       </header>
+
+      <div id="sb-consistency" class="consistency-warnings hidden"></div>
 
       <div class="sb-meta">
         <div><span class="sb-label">Hook</span><span id="sb-hook">—</span></div>

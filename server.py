@@ -35,12 +35,12 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from src import sessions, storage
+from src import guard, sessions, storage
 from src.graph import build_graph
 from src.runtime import reset_request_config, set_request_config
 
@@ -133,6 +133,7 @@ def _session_view(session_id: str) -> dict[str, Any]:
         "messages": storage.list_messages(session_id),
         "shot_images": storage.list_shot_images(session_id),
         "video": storage.get_video(session_id),
+        "brand_manual": storage.get_brand_manual(session_id),
     }
 
 
@@ -160,6 +161,20 @@ def post_message(sid: str, req: ChatRequest) -> JSONResponse:
     token = set_request_config(**cfg)
     try:
         reply = sessions.chat_turn(sid, req.content)
+    except guard.UserInputViolation as viol:
+        # 422 — the user can fix this by rephrasing. Return the structured
+        # violations so the UI can render a specific, actionable error.
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "kind": "guard_rejected",
+                "message": (
+                    "Your message contains content we can't use in a Saudi "
+                    "ad. Please rephrase and try again."
+                ),
+                "violations": viol.violations,
+            },
+        ) from viol
     except Exception as exc:
         import traceback
         print(f"\n=== chat_turn failed ===\n{traceback.format_exc()}", flush=True)
@@ -167,6 +182,48 @@ def post_message(sid: str, req: ChatRequest) -> JSONResponse:
     finally:
         reset_request_config(token)
     return JSONResponse({"reply": reply, **_session_view(sid)})
+
+
+# ---------------------------------------------------------------------------
+# Brand manual (RAG source) — per-session PDF upload
+# ---------------------------------------------------------------------------
+
+MAX_BRAND_MANUAL_BYTES = 20 * 1024 * 1024  # 20 MB
+
+
+@app.post("/api/sessions/{sid}/brand-manual")
+async def upload_brand_manual(sid: str, file: UploadFile = File(...)) -> JSONResponse:
+    if storage.get_session(sid) is None:
+        raise HTTPException(404, "Session not found")
+    if not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(400, "Only PDF files are accepted (.pdf).")
+    contents = await file.read()
+    if len(contents) > MAX_BRAND_MANUAL_BYTES:
+        raise HTTPException(
+            413,
+            f"PDF is {len(contents) // (1024 * 1024)} MB, max {MAX_BRAND_MANUAL_BYTES // (1024 * 1024)} MB.",
+        )
+    try:
+        info = sessions.save_uploaded_brand_manual(
+            session_id=sid, filename=file.filename, pdf_bytes=contents
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return JSONResponse({"ok": True, "manual": info})
+
+
+@app.get("/api/sessions/{sid}/brand-manual")
+def get_brand_manual(sid: str) -> JSONResponse:
+    if storage.get_session(sid) is None:
+        raise HTTPException(404, "Session not found")
+    manual = storage.get_brand_manual(sid)
+    return JSONResponse(manual or {})
+
+
+@app.delete("/api/sessions/{sid}/brand-manual")
+def remove_brand_manual(sid: str) -> JSONResponse:
+    storage.delete_brand_manual(sid)
+    return JSONResponse({"ok": True})
 
 
 @app.post("/api/sessions/{sid}/storyboard/confirm")

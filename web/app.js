@@ -43,6 +43,11 @@ let videoPollHandle = null;
   $("generate-video-btn").addEventListener("click", onGenerateVideo);
   $("new-session-btn").addEventListener("click", onNewSession);
 
+  // Brand-manual upload widget
+  $("brand-rag-file").addEventListener("change", onBrandManualPicked);
+  $("brand-rag-remove").addEventListener("click", onBrandManualRemove);
+  $("brand-rag-replace").addEventListener("click", () => $("brand-rag-file").click());
+
   const stored = localStorage.getItem(STORE_KEY);
   if (stored) {
     SESSION_ID = stored;
@@ -111,17 +116,30 @@ async function onNewSession() {
   $("video-panel").classList.add("hidden");
   $("chat-input").value = "";
   $("chat-send").disabled = true;
+  showBrandManualEmpty();
 }
 
 // ---------- Restore from server-side state ---------------------------------
 function restoreView(view) {
-  const { session, messages, shot_images, video } = view;
+  const { session, messages, shot_images, video, brand_manual } = view;
   if (messages.length) $("chat-empty").classList.add("hidden");
 
-  for (const m of messages) renderChatMessage(m.role, m.content, m.payload);
+  // Render last consistency warnings if the most recent assistant message
+  // had any (they live in the message payload).
+  let lastWarnings = null;
+  for (const m of messages) {
+    renderChatMessage(m.role, m.content, m.payload);
+    if (m.role === "assistant" && m.payload?.brand_consistency_warnings?.length) {
+      lastWarnings = m.payload.brand_consistency_warnings;
+    }
+  }
+
+  if (brand_manual && brand_manual.filename) showBrandManualLoaded(brand_manual);
+  else showBrandManualEmpty();
 
   if (session.storyboard) {
     showStoryboard(session.storyboard, /* enableConfirm */ session.state === "storyboard_draft");
+    if (lastWarnings) showConsistencyWarnings(lastWarnings);
   }
   if (shot_images.length) {
     showImageGrid(session.storyboard?.shots || [], shot_images);
@@ -159,6 +177,16 @@ async function onSendMessage(e) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: text }),
     });
+
+    // Guard rejection — server returns 422 with structured violations
+    if (r.status === 422) {
+      const j = await r.json().catch(() => ({}));
+      const detail = j.detail || {};
+      removeChatPending(pendingId);
+      renderGuardRejection(detail);
+      return;
+    }
+
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       throw new Error(j.detail || `HTTP ${r.status}`);
@@ -173,6 +201,7 @@ async function onSendMessage(e) {
       const intro = reply.summary || "Here's a draft storyboard.";
       renderChatMessage("assistant", intro, { action: "storyboard" });
       showStoryboard(reply.storyboard, /* enableConfirm */ true);
+      showConsistencyWarnings(reply.brand_consistency_warnings || []);
     }
   } catch (err) {
     removeChatPending(pendingId);
@@ -180,6 +209,51 @@ async function onSendMessage(e) {
   } finally {
     $("chat-send").disabled = $("chat-input").value.trim().length === 0;
   }
+}
+
+function renderGuardRejection(detail) {
+  const hardBan = (detail.violations || []).filter((v) => v.category === "hard_ban");
+  const sensitive = (detail.violations || []).filter((v) => v.category === "muslim_sensitive");
+  const li = document.createElement("li");
+  li.className = "chat-msg chat-assistant chat-guard";
+  let body =
+    `<strong>Content guard rejected your message.</strong> ` +
+    escapeHtml(detail.message || "Please rephrase to remove the flagged content.");
+  if (hardBan.length) {
+    body +=
+      `<div class="guard-section guard-hard"><span class="guard-tag">prohibited</span><ul>` +
+      hardBan.map((v) => `<li><code>${escapeHtml(v.term)}</code> — ${escapeHtml(v.message)}</li>`).join("") +
+      `</ul></div>`;
+  }
+  if (sensitive.length) {
+    body +=
+      `<div class="guard-section guard-sensitive"><span class="guard-tag">muslim-sensitive</span><ul>` +
+      sensitive.map((v) => `<li><code>${escapeHtml(v.term)}</code> — ${escapeHtml(v.message)}</li>`).join("") +
+      `</ul></div>`;
+  }
+  li.innerHTML =
+    `<span class="chat-role">Guard</span>` +
+    `<div class="chat-bubble guard-bubble">${body}</div>`;
+  $("chat-log").appendChild(li);
+  li.scrollIntoView({ behavior: "smooth", block: "end" });
+}
+
+function showConsistencyWarnings(warnings) {
+  const el = $("sb-consistency");
+  if (!warnings || !warnings.length) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  el.classList.remove("hidden");
+  el.innerHTML =
+    `<strong>⚠ Brand-manual consistency warnings (${warnings.length})</strong>` +
+    `<ul>` +
+    warnings.map((w) =>
+      `<li><span class="warning-rule">${escapeHtml(w.rule || "")}</span> — ${escapeHtml(w.issue || "")}</li>`
+    ).join("") +
+    `</ul>` +
+    `<p class="muted small">Reply in the chat asking the planner to fix these, or proceed if you're OK with them.</p>`;
 }
 
 function renderChatMessage(role, content, payload = null) {
@@ -443,4 +517,77 @@ function startVideoPolling() {
       console.warn("video poll error", e);
     }
   }, 5000);
+}
+
+// ---------- Brand manual upload (RAG) --------------------------------------
+function showBrandManualEmpty() {
+  $("brand-rag-empty").classList.remove("hidden");
+  $("brand-rag-loaded").classList.add("hidden");
+  $("brand-rag-uploading").classList.add("hidden");
+  $("brand-rag-error").classList.add("hidden");
+  $("brand-rag-file").value = "";
+}
+
+function showBrandManualLoaded(manual) {
+  $("brand-rag-empty").classList.add("hidden");
+  $("brand-rag-loaded").classList.remove("hidden");
+  $("brand-rag-uploading").classList.add("hidden");
+  $("brand-rag-error").classList.add("hidden");
+  $("brand-rag-name").textContent = manual.filename || "manual.pdf";
+  const mb = ((manual.bytes || 0) / 1024 / 1024).toFixed(2);
+  $("brand-rag-stats").textContent = `${manual.pages} pages · ${mb} MB · uploaded ${manual.created_at || ""}`;
+}
+
+function showBrandManualUploading() {
+  $("brand-rag-empty").classList.add("hidden");
+  $("brand-rag-loaded").classList.add("hidden");
+  $("brand-rag-uploading").classList.remove("hidden");
+  $("brand-rag-error").classList.add("hidden");
+}
+
+function showBrandManualError(msg) {
+  $("brand-rag-error").classList.remove("hidden");
+  $("brand-rag-error").textContent = msg;
+}
+
+async function onBrandManualPicked(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith(".pdf")) {
+    showBrandManualError("Only .pdf files are accepted.");
+    return;
+  }
+  await ensureSession();
+  showBrandManualUploading();
+
+  const fd = new FormData();
+  fd.append("file", file, file.name);
+
+  try {
+    const r = await fetch(`/api/sessions/${SESSION_ID}/brand-manual`, {
+      method: "POST",
+      body: fd,
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.detail || `HTTP ${r.status}`);
+    }
+    const j = await r.json();
+    const manual = { ...j.manual, created_at: new Date().toISOString().slice(0, 19).replace("T", " ") };
+    showBrandManualLoaded(manual);
+  } catch (err) {
+    showBrandManualEmpty();
+    showBrandManualError(`Upload failed: ${err.message || err}`);
+  }
+}
+
+async function onBrandManualRemove() {
+  if (!SESSION_ID) return;
+  if (!confirm("Remove the uploaded brand manual? Storyboard generation will fall back to the bundled demo manual.")) return;
+  try {
+    await fetch(`/api/sessions/${SESSION_ID}/brand-manual`, { method: "DELETE" });
+  } catch (e) {
+    console.warn("delete failed", e);
+  }
+  showBrandManualEmpty();
 }

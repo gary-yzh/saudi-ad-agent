@@ -37,7 +37,7 @@ from typing import Any
 
 import httpx
 
-from . import storage
+from . import guard, storage
 from .llm import call_claude
 from .nodes.guardrail import _keyword_check
 from .nodes.rag import DEFAULT_BRAND_DOC, _extract_constraints, _read_doc
@@ -54,7 +54,8 @@ RUNS_DIR = PROJECT_ROOT / "outputs" / "runs"
 _brand_cache: list[str] | None = None
 
 
-def _brand_constraints() -> list[str]:
+def _default_brand_constraints() -> list[str]:
+    """Constraints from the bundled demo brand manual (Markdown)."""
     global _brand_cache
     if _brand_cache is not None:
         return _brand_cache
@@ -64,6 +65,21 @@ def _brand_constraints() -> list[str]:
     except Exception:
         _brand_cache = []
     return _brand_cache
+
+
+def _session_brand_excerpt(session_id: str, max_chars: int = 8000) -> str | None:
+    """The full text of a session-uploaded brand manual, capped to keep the
+    LLM prompt under control. Returns None if no manual was uploaded."""
+    text = storage.get_brand_manual_text(session_id)
+    if not text:
+        return None
+    text = text.strip()
+    if len(text) <= max_chars:
+        return text
+    # Take the head + tail so we still include closing rules / sign-off
+    head = text[: max_chars - 1500]
+    tail = text[-1500:]
+    return head + "\n\n[…manual truncated…]\n\n" + tail
 
 
 # ---------------------------------------------------------------------------
@@ -137,30 +153,105 @@ def _strip_code_fence(text: str) -> str:
     return fence.group(1) if fence else text
 
 
+CONSISTENCY_SYSTEM = """You are a strict brand-compliance reviewer. You will
+be given (a) a brand manual and (b) a proposed multi-shot storyboard.
+
+Decide whether the storyboard violates any concrete rule from the brand
+manual — palette, typography, modesty defaults, allowed imagery, banned
+words, prayer-time / Ramadan rules, GAMR / KSA advertising rules, sign-off
+phrasing, etc.
+
+Return STRICT JSON:
+{"ok": true,  "violations": []}                 -- compliant
+{"ok": false, "violations": [{"rule": "<short rule from manual>", "issue": "<what's wrong with the storyboard>"}, ...]}
+
+Rules to follow:
+- Be concrete: cite the manual rule each violation maps to.
+- Do NOT flag stylistic differences that aren't actual rule violations.
+- If the manual is silent on a topic, don't invent rules.
+- Output ONLY the JSON object, no commentary."""
+
+
+def _check_brand_consistency(storyboard: dict[str, Any], manual_text: str) -> list[dict[str, str]]:
+    """Run a second LLM pass that judges the draft storyboard against the
+    uploaded brand manual. Returns a list of {rule, issue} dicts.
+
+    On any LLM error we return [] rather than raising — the storyboard is
+    already useful even if the consistency pass flakes."""
+    if not manual_text:
+        return []
+    capped = manual_text if len(manual_text) <= 9000 else (manual_text[:8000] + "\n[…truncated…]")
+    user = (
+        "BRAND MANUAL EXCERPT:\n"
+        + capped
+        + "\n\nPROPOSED STORYBOARD (JSON):\n"
+        + json.dumps(storyboard, ensure_ascii=False, indent=2)
+    )
+    try:
+        result = call_claude(
+            system=CONSISTENCY_SYSTEM,
+            user=user,
+            json_mode=True,
+            max_tokens=600,
+        )
+    except Exception as e:
+        print(f"[brand-consistency] check failed (non-fatal): {e}", flush=True)
+        return []
+    if isinstance(result, dict) and not result.get("ok", True):
+        return [v for v in (result.get("violations") or []) if isinstance(v, dict)]
+    return []
+
+
 def chat_turn(session_id: str, user_msg: str) -> dict[str, Any]:
     """Run one round of chat. Returns the assistant's reply payload.
 
-    Side-effects:
-      - Saves both the user message and the assistant message.
-      - If the LLM returns a storyboard, runs the deterministic guardrail.
-        Pass → save the storyboard, set state=storyboard_draft.
-        Fail → tell the LLM to revise (one retry) inside this same turn.
+    Side-effects (in order):
+      0. **Content guard** on the user's input — if they typed a banned or
+         Muslim-sensitive term, raise `guard.UserInputViolation` *before*
+         we save the message or call the LLM. The endpoint catches this
+         and returns a 400 to the UI.
+      1. Save the user message.
+      2. Build the LLM prompt using the session's uploaded brand manual
+         (if any), otherwise fall back to the bundled demo manual's
+         extracted constraint bullets.
+      3. Ask the LLM — either clarifying question or storyboard.
+      4. If storyboard, run the deterministic AR/EN keyword guardrail.
+         Fail → ask the LLM to revise once.
+      5. If a session brand manual is uploaded, run a second LLM pass
+         that judges the draft against the manual; surface violations to
+         the user (and tell the LLM to revise once if any are found).
+      6. Save the assistant message + the storyboard payload.
     """
     session = storage.get_session(session_id)
     if session is None:
         raise ValueError(f"Session {session_id} not found")
 
+    # Step 0 — content guard
+    guard.assert_user_input_clean(user_msg)
+
+    # Step 1 — persist the user turn
     storage.add_message(session_id=session_id, role="user", content=user_msg)
 
     locale = session.get("locale") or "en-US"
     audience = session.get("target_audience") or ""
-    constraints = _brand_constraints()
+
+    # Step 2 — choose RAG source
+    manual_text = _session_brand_excerpt(session_id)
+    if manual_text:
+        rag_block = (
+            "BRAND MANUAL (uploaded by the user — treat as authoritative):\n"
+            + manual_text
+        )
+    else:
+        constraints = _default_brand_constraints()
+        rag_block = "BRAND CONSTRAINTS (from default demo manual):\n" + "\n".join(
+            f"- {c}" for c in constraints[:30]
+        )
 
     user_payload = (
         f"LOCALE: {locale}\n"
         f"TARGET AUDIENCE: {audience}\n\n"
-        "BRAND CONSTRAINTS:\n"
-        + "\n".join(f"- {c}" for c in constraints[:30])
+        + rag_block
         + "\n\nCONVERSATION SO FAR:\n"
         + _conversation_for_llm(session_id)
     )
@@ -184,7 +275,8 @@ def chat_turn(session_id: str, user_msg: str) -> dict[str, Any]:
 
     if action == "storyboard":
         storyboard = raw.get("storyboard") or {}
-        # Run the cheap deterministic guardrail
+
+        # Step 4 — keyword guardrail
         violations = _keyword_check(
             {
                 "hook": storyboard.get("hook", ""),
@@ -196,29 +288,43 @@ def chat_turn(session_id: str, user_msg: str) -> dict[str, Any]:
             },
             ramadan="ramadan" in user_msg.lower(),
         )
-        if violations:
-            # One automatic regeneration nudging the LLM to fix it.
-            fix_user = (
-                user_payload
-                + "\n\nYour previous draft was rejected by the guardrail. "
-                + "Address every one of these and re-emit a clean storyboard:\n"
-                + "\n".join(f"- {v}" for v in violations)
-            )
+
+        # Step 5 — brand-manual consistency check (only if user uploaded one)
+        consistency_viols = _check_brand_consistency(storyboard, manual_text or "")
+
+        if violations or consistency_viols:
+            fix_user = user_payload + "\n\nYour previous draft was rejected. Address every issue below and re-emit a clean storyboard:\n"
+            if violations:
+                fix_user += "\n# Keyword guardrail violations:\n" + "\n".join(f"- {v}" for v in violations)
+            if consistency_viols:
+                fix_user += "\n# Brand-manual consistency violations:\n" + "\n".join(
+                    f"- rule: {v.get('rule')} — issue: {v.get('issue')}" for v in consistency_viols
+                )
             raw2 = call_claude(system=CHAT_SYSTEM, user=fix_user, json_mode=True, max_tokens=1800)
             if isinstance(raw2, dict) and raw2.get("action") == "storyboard":
                 storyboard = raw2.get("storyboard") or storyboard
+                # Re-run the consistency check on the revised draft so the
+                # final payload reflects the freshest assessment.
+                consistency_viols = _check_brand_consistency(storyboard, manual_text or "")
 
         summary = raw.get("summary") or "Here's a draft storyboard for your ad."
         storage.update_session_storyboard(session_id, storyboard)
+        payload = {"action": "storyboard", "storyboard": storyboard}
+        if consistency_viols:
+            payload["brand_consistency_warnings"] = consistency_viols
         storage.add_message(
             session_id=session_id,
             role="assistant",
             content=summary,
-            payload={"action": "storyboard", "storyboard": storyboard},
+            payload=payload,
         )
-        return {"action": "storyboard", "summary": summary, "storyboard": storyboard}
+        return {
+            "action": "storyboard",
+            "summary": summary,
+            "storyboard": storyboard,
+            "brand_consistency_warnings": consistency_viols,
+        }
 
-    # Unknown action — degrade to ask
     fallback = "I didn't quite get that — can you tell me more about the product and target audience?"
     storage.add_message(session_id=session_id, role="assistant", content=fallback, payload={"action": "ask"})
     return {"action": "ask", "question": fallback}
@@ -451,3 +557,44 @@ def start_video_generation(
 
 def new_session_id() -> str:
     return uuid.uuid4().hex
+
+
+# ---------------------------------------------------------------------------
+# Brand manual upload — extract text on receipt and stash in SQLite
+# ---------------------------------------------------------------------------
+
+
+def save_uploaded_brand_manual(*, session_id: str, filename: str, pdf_bytes: bytes) -> dict[str, Any]:
+    """Read an uploaded PDF, extract every page's text, persist to the
+    brand_manuals table. Returns a dict for the API response.
+
+    Raises ValueError on a non-PDF / unreadable file."""
+    from io import BytesIO
+
+    from pypdf import PdfReader
+    try:
+        reader = PdfReader(BytesIO(pdf_bytes))
+        pages = [p.extract_text() or "" for p in reader.pages]
+    except Exception as e:
+        raise ValueError(f"Could not read PDF: {e}") from e
+
+    text = "\n\n".join(pages).strip()
+    if not text:
+        raise ValueError(
+            "PDF parsed but no text extracted — is this a scanned PDF? "
+            "We don't OCR, so please supply a text-based PDF."
+        )
+
+    storage.save_brand_manual(
+        session_id=session_id,
+        filename=filename,
+        pages=len(pages),
+        byte_size=len(pdf_bytes),
+        text=text,
+    )
+    return {
+        "filename": filename,
+        "pages": len(pages),
+        "bytes": len(pdf_bytes),
+        "chars": len(text),
+    }

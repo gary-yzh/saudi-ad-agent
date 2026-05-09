@@ -1166,3 +1166,103 @@ button.secondary:hover { background: var(--bg); }
   font-size: 11.5px;
   font-family: 'JetBrains Mono', monospace;
 }
+
+/* ---------- Brand manual (RAG) widget ---------- */
+.brand-rag {
+  margin: 12px 0;
+  padding: 0;
+}
+.brand-rag-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+.brand-rag-icon { font-size: 18px; flex-shrink: 0; }
+.brand-rag-meta { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.brand-rag-meta strong { font-size: 13px; }
+
+.brand-rag-upload {
+  margin-left: auto;
+  display: inline-block;
+  cursor: pointer;
+  padding: 6px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  flex-shrink: 0;
+}
+.brand-rag-upload:hover { border-color: var(--emerald); color: var(--emerald); }
+.brand-rag-upload input[type=file] { display: none; }
+
+.link-danger { color: var(--danger); }
+.link-danger:hover { color: #8a2929; }
+
+.brand-rag-error {
+  margin-top: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--danger);
+  background: #FBE6E6;
+  border: 1px solid var(--danger);
+  border-radius: 5px;
+}
+
+/* ---------- Guard rejection chat bubble ---------- */
+.chat-guard .chat-bubble.guard-bubble {
+  background: #FBE6E6;
+  border: 1px solid var(--danger);
+  border-bottom-left-radius: 4px;
+  color: var(--text);
+  max-width: 88%;
+}
+.chat-guard .chat-bubble.guard-bubble strong { color: var(--danger); }
+.guard-section {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border-radius: 5px;
+  border: 1px solid var(--border);
+}
+.guard-section ul { margin: 6px 0 0 18px; padding: 0; font-size: 12.5px; }
+.guard-section li { margin: 2px 0; line-height: 1.4; }
+.guard-section code { font-size: 11.5px; }
+
+.guard-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 3px;
+}
+.guard-section.guard-hard .guard-tag { background: #FBE6E6; color: var(--danger); border: 1px solid var(--danger); }
+.guard-section.guard-sensitive .guard-tag { background: #FFF3D6; color: #8A6A1F; border: 1px solid var(--gold); }
+
+/* ---------- Brand-consistency warnings panel ---------- */
+.consistency-warnings {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: #FFF3D6;
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  color: #6B5410;
+  font-size: 13px;
+}
+.consistency-warnings strong { color: #8A6A1F; }
+.consistency-warnings ul { margin: 6px 0 4px 18px; padding: 0; }
+.consistency-warnings li { margin: 3px 0; line-height: 1.5; }
+.consistency-warnings .warning-rule {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #8A6A1F;
+}
+.consistency-warnings p { margin: 6px 0 0; }

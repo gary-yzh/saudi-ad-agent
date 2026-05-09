@@ -111,6 +111,18 @@ def _connect() -> sqlite3.Connection:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS brand_manuals (
+            session_id TEXT PRIMARY KEY,
+            filename TEXT NOT NULL,
+            pages INTEGER NOT NULL,
+            bytes INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
     return conn
 
 
@@ -381,3 +393,63 @@ def get_video(session_id: str) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         d["selected_shot_ids"] = []
     return d
+
+
+# ---------------------------------------------------------------------------
+# Brand manuals (per-session uploaded PDFs, used as a RAG source)
+# ---------------------------------------------------------------------------
+
+
+def save_brand_manual(
+    *,
+    session_id: str,
+    filename: str,
+    pages: int,
+    byte_size: int,
+    text: str,
+) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO brand_manuals (session_id, filename, pages, bytes, text)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (session_id) DO UPDATE SET
+              filename = excluded.filename,
+              pages = excluded.pages,
+              bytes = excluded.bytes,
+              text = excluded.text,
+              created_at = datetime('now')
+            """,
+            (session_id, filename, pages, byte_size, text),
+        )
+        conn.commit()
+
+
+def get_brand_manual(session_id: str) -> dict[str, Any] | None:
+    """Return manual record (without text) for status display."""
+    with _connect() as conn:
+        row = conn.execute(
+            """
+            SELECT session_id, filename, pages, bytes, created_at
+            FROM brand_manuals WHERE session_id = ?
+            """,
+            (session_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_brand_manual_text(session_id: str) -> str | None:
+    """Return the extracted text body for chat-time consumption."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT text FROM brand_manuals WHERE session_id = ?", (session_id,)
+        ).fetchone()
+    return row["text"] if row else None
+
+
+def delete_brand_manual(session_id: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM brand_manuals WHERE session_id = ?", (session_id,)
+        )
+        conn.commit()
