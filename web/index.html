@@ -46,7 +46,35 @@
         </div>
       </header>
 
-      <!-- RAG: brand manual PDF upload -->
+      <!-- RAG: brand manual PDF + brand logo image -->
+      <div class="brand-uploads">
+
+      <!-- Logo upload (composited onto every still) -->
+      <div class="brand-rag" id="brand-logo-widget">
+        <div class="brand-rag-row" id="brand-logo-empty">
+          <span class="brand-rag-icon">🏷</span>
+          <span class="muted small">
+            Upload the brand logo (PNG/JPG/WEBP). It will be composited onto
+            the bottom-right of every generated still — Seedream is told to
+            leave that area empty so the placement is always correct.
+          </span>
+          <label class="brand-rag-upload">
+            <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp">
+            <span>Upload logo</span>
+          </label>
+        </div>
+        <div class="brand-rag-row hidden" id="brand-logo-loaded">
+          <span class="brand-rag-icon">🏷</span>
+          <span class="brand-rag-meta">
+            <strong id="brand-logo-name">—</strong>
+            <span class="muted small" id="brand-logo-stats">—</span>
+          </span>
+          <button type="button" id="brand-logo-replace" class="link">Replace</button>
+          <button type="button" id="brand-logo-remove" class="link link-danger">Remove</button>
+        </div>
+        <div class="brand-rag-error hidden" id="brand-logo-error"></div>
+      </div>
+
       <div class="brand-rag" id="brand-rag">
         <div class="brand-rag-row" id="brand-rag-empty">
           <span class="brand-rag-icon">📄</span>
@@ -75,6 +103,8 @@
         </div>
         <div class="brand-rag-error hidden" id="brand-rag-error"></div>
       </div>
+
+      </div><!-- /.brand-uploads -->
 
       <ol id="chat-log" class="chat-log">
         <!-- chat bubbles get appended here -->

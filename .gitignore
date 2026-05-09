@@ -16,8 +16,9 @@ env/
 
 # Run artefacts (regenerated each invocation)
 outputs/runs/
+outputs/logos/
 
-# SQLite settings store (contains API keys)
+# SQLite settings store (contains API keys + uploaded brand manuals/logos meta)
 data/app.db
 data/app.db-journal
 

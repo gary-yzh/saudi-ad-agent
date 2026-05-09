@@ -48,6 +48,11 @@ let videoPollHandle = null;
   $("brand-rag-remove").addEventListener("click", onBrandManualRemove);
   $("brand-rag-replace").addEventListener("click", () => $("brand-rag-file").click());
 
+  // Brand-logo upload widget
+  $("brand-logo-file").addEventListener("change", onBrandLogoPicked);
+  $("brand-logo-remove").addEventListener("click", onBrandLogoRemove);
+  $("brand-logo-replace").addEventListener("click", () => $("brand-logo-file").click());
+
   const stored = localStorage.getItem(STORE_KEY);
   if (stored) {
     SESSION_ID = stored;
@@ -117,11 +122,12 @@ async function onNewSession() {
   $("chat-input").value = "";
   $("chat-send").disabled = true;
   showBrandManualEmpty();
+  showBrandLogoEmpty();
 }
 
 // ---------- Restore from server-side state ---------------------------------
 function restoreView(view) {
-  const { session, messages, shot_images, video, brand_manual } = view;
+  const { session, messages, shot_images, video, brand_manual, brand_logo } = view;
   if (messages.length) $("chat-empty").classList.add("hidden");
 
   // Render last consistency warnings if the most recent assistant message
@@ -136,6 +142,9 @@ function restoreView(view) {
 
   if (brand_manual && brand_manual.filename) showBrandManualLoaded(brand_manual);
   else showBrandManualEmpty();
+
+  if (brand_logo && brand_logo.filename) showBrandLogoLoaded(brand_logo);
+  else showBrandLogoEmpty();
 
   if (session.storyboard) {
     showStoryboard(session.storyboard, /* enableConfirm */ session.state === "storyboard_draft");
@@ -285,6 +294,7 @@ function removeChatPending(id) {
 
 // ---------- Storyboard preview ---------------------------------------------
 function showStoryboard(sb, enableConfirm) {
+  _storyboardCache = sb || null;  // refresh cache so polling renders fresh shot metadata
   $("storyboard-panel").classList.remove("hidden");
   $("sb-hook").textContent = sb.hook || "—";
   $("sb-cta").textContent = sb.cta || "—";
@@ -357,32 +367,56 @@ function showImageGrid(shots, statuses) {
     const card = document.createElement("li");
     card.className = `image-card image-${st.status}`;
     card.dataset.shotId = String(shot.id);
+    card.dataset.status = st.status;
     card.innerHTML = renderImageCardInner(shot, st);
     grid.appendChild(card);
-    const cb = card.querySelector("input[type=checkbox]");
-    if (cb) cb.addEventListener("change", updateSelectionCount);
+    wireImageCardEvents(card);
   }
   updateSelectionCount();
   updateImagesProgress(statuses);
 }
 
 function renderImageCardInner(shot, st) {
-  const checked = st.status === "succeeded" ? "checked" : "";
-  const disabled = st.status === "succeeded" ? "" : "disabled";
-  const media =
-    st.status === "succeeded"
-      ? `<img src="${escapeHtml(st.url)}" alt="shot ${shot.id}" referrerpolicy="no-referrer">`
-      : st.status === "failed"
-      ? `<div class="image-failed">⚠ ${escapeHtml(st.error || "failed")}</div>`
-      : `<div class="image-spinner"><div class="spinner"></div><span>${st.status}…</span></div>`;
+  const succeeded = st.status === "succeeded";
+  const failed = st.status === "failed";
+  const checked = succeeded ? "checked" : "";
+  const disabled = succeeded ? "" : "disabled";
+  const media = succeeded
+    ? `<img src="${escapeHtml(st.url)}?t=${st.updated_at || ''}" alt="shot ${shot.id}" referrerpolicy="no-referrer">`
+    : failed
+    ? `<div class="image-failed">⚠ ${escapeHtml(st.error || "failed")}</div>`
+    : `<div class="image-spinner"><div class="spinner"></div><span>${st.status}…</span></div>`;
+
+  const failureClass = failed && /sensitive|moderation/i.test(st.error || "") ? " moderation-fail" : "";
+
+  // Per-image controls: refine input (when ok), retry button (when failed)
+  const controls = succeeded
+    ? `<form class="shot-refine" data-shot-id="${shot.id}">` +
+      `<input type="text" class="shot-refine-input" placeholder="Tweak this shot — e.g. 'darker background, no people'" maxlength="500">` +
+      `<button type="submit" class="shot-refine-send" title="Re-generate this shot">↻</button>` +
+      `</form>`
+    : failed
+    ? `<div class="shot-retry"><button type="button" class="shot-retry-btn" data-shot-id="${shot.id}">↻ Retry</button></div>`
+    : `<div class="shot-controls-placeholder muted small">Generating…</div>`;
+
   return (
     `<label class="image-check"><input type="checkbox" ${checked} ${disabled}><span></span></label>` +
-    `<div class="image-media">${media}</div>` +
+    `<div class="image-media${failureClass}">${media}</div>` +
     `<div class="image-meta">` +
     `<span class="image-id">#${shot.id} · ${shot.duration_s ?? "?"}s</span>` +
     `<span class="image-scene">${escapeHtml(shot.scene || "")}</span>` +
-    `</div>`
+    `</div>` +
+    controls
   );
+}
+
+function wireImageCardEvents(card) {
+  const cb = card.querySelector("input[type=checkbox]");
+  if (cb) cb.addEventListener("change", updateSelectionCount);
+  const refineForm = card.querySelector(".shot-refine");
+  if (refineForm) refineForm.addEventListener("submit", onShotRefine);
+  const retryBtn = card.querySelector(".shot-retry-btn");
+  if (retryBtn) retryBtn.addEventListener("click", onShotRetry);
 }
 
 function updateSelectionCount() {
@@ -402,18 +436,22 @@ function startImagePolling() {
     try {
       const r = await fetch(`/api/sessions/${SESSION_ID}/images`);
       const data = await r.json();
-      // Patch each card in place
+      // Patch each card in place. Re-render even if status didn't change
+      // when the row's updated_at advanced — that catches refine completions
+      // (running → running → succeeded with a brand-new url).
       for (const st of data.shots) {
         const card = document.querySelector(`.image-card[data-shot-id="${st.shot_id}"]`);
         if (!card) continue;
-        if (card.dataset.status === st.status) continue;
+        const sameStatus = card.dataset.status === st.status;
+        const sameUpdated = card.dataset.updatedAt === st.updated_at;
+        if (sameStatus && sameUpdated) continue;
         card.dataset.status = st.status;
+        card.dataset.updatedAt = st.updated_at || "";
         card.className = `image-card image-${st.status}`;
         const sb = await fetchCachedStoryboard();
         const shot = (sb?.shots || []).find((s) => s.id === st.shot_id) || { id: st.shot_id };
         card.innerHTML = renderImageCardInner(shot, st);
-        const cb = card.querySelector("input[type=checkbox]");
-        if (cb) cb.addEventListener("change", updateSelectionCount);
+        wireImageCardEvents(card);
       }
       updateSelectionCount();
       updateImagesProgress(data.shots);
@@ -590,4 +628,134 @@ async function onBrandManualRemove() {
     console.warn("delete failed", e);
   }
   showBrandManualEmpty();
+}
+
+// ---------- Brand logo upload ----------------------------------------------
+function showBrandLogoEmpty() {
+  $("brand-logo-empty").classList.remove("hidden");
+  $("brand-logo-loaded").classList.add("hidden");
+  $("brand-logo-error").classList.add("hidden");
+  $("brand-logo-file").value = "";
+}
+
+function showBrandLogoLoaded(logo) {
+  $("brand-logo-empty").classList.add("hidden");
+  $("brand-logo-loaded").classList.remove("hidden");
+  $("brand-logo-error").classList.add("hidden");
+  $("brand-logo-name").textContent = logo.filename || "logo";
+  const kb = ((logo.bytes || 0) / 1024).toFixed(1);
+  const dim = (logo.width && logo.height) ? `${logo.width}×${logo.height}` : "";
+  $("brand-logo-stats").textContent = [dim, `${kb} KB`].filter(Boolean).join(" · ");
+}
+
+function showBrandLogoError(msg) {
+  $("brand-logo-error").classList.remove("hidden");
+  $("brand-logo-error").textContent = msg;
+}
+
+async function onBrandLogoPicked(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  if (!/\.(png|jpe?g|webp)$/i.test(file.name)) {
+    showBrandLogoError("Only PNG / JPG / WEBP images are accepted.");
+    return;
+  }
+  await ensureSession();
+  const fd = new FormData();
+  fd.append("file", file, file.name);
+  try {
+    const r = await fetch(`/api/sessions/${SESSION_ID}/brand-logo`, {
+      method: "POST",
+      body: fd,
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.detail || `HTTP ${r.status}`);
+    }
+    const j = await r.json();
+    showBrandLogoLoaded(j.logo);
+  } catch (err) {
+    showBrandLogoEmpty();
+    showBrandLogoError(`Upload failed: ${err.message || err}`);
+  }
+}
+
+async function onBrandLogoRemove() {
+  if (!SESSION_ID) return;
+  if (!confirm("Remove the uploaded logo? Future stills won't be composited.")) return;
+  try {
+    await fetch(`/api/sessions/${SESSION_ID}/brand-logo`, { method: "DELETE" });
+  } catch (e) {
+    console.warn("delete failed", e);
+  }
+  showBrandLogoEmpty();
+}
+
+// ---------- Per-shot refine + retry ----------------------------------------
+async function onShotRefine(e) {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const shotId = Number(form.dataset.shotId);
+  const input = form.querySelector(".shot-refine-input");
+  const instruction = (input.value || "").trim();
+  if (!instruction || !SESSION_ID) return;
+
+  // Optimistic UI: clear input, mark card as running, restart polling
+  input.value = "";
+  const card = document.querySelector(`.image-card[data-shot-id="${shotId}"]`);
+  if (card) {
+    card.dataset.status = "running";
+    card.className = "image-card image-running";
+    const sb = await fetchCachedStoryboard();
+    const shot = (sb?.shots || []).find((s) => s.id === shotId) || { id: shotId };
+    card.innerHTML = renderImageCardInner(shot, { status: "running" });
+    wireImageCardEvents(card);
+  }
+
+  try {
+    const r = await fetch(`/api/sessions/${SESSION_ID}/shots/${shotId}/refine`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instruction }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.detail || `HTTP ${r.status}`);
+    }
+    startImagePolling();
+  } catch (err) {
+    alert(`Refine failed: ${err.message || err}`);
+  }
+}
+
+async function onShotRetry(e) {
+  const btn = e.currentTarget;
+  const shotId = Number(btn.dataset.shotId);
+  if (!shotId || !SESSION_ID) return;
+  btn.disabled = true;
+  btn.textContent = "↻ retrying…";
+  try {
+    const r = await fetch(`/api/sessions/${SESSION_ID}/shots/${shotId}/retry`, {
+      method: "POST",
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.detail || `HTTP ${r.status}`);
+    }
+    // Restart polling so the card updates as the retry progresses
+    const card = document.querySelector(`.image-card[data-shot-id="${shotId}"]`);
+    if (card) {
+      card.dataset.status = "running";
+      card.className = "image-card image-running";
+      const sb = await fetchCachedStoryboard();
+      const shot = (sb?.shots || []).find((s) => s.id === shotId) || { id: shotId };
+      card.innerHTML = renderImageCardInner(shot, { status: "running" });
+      wireImageCardEvents(card);
+    }
+    startImagePolling();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = "↻ Retry";
+    alert(`Retry failed: ${err.message || err}`);
+  }
 }

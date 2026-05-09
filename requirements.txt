@@ -9,3 +9,4 @@ fastapi>=0.110
 uvicorn[standard]>=0.27
 openai>=1.40
 python-multipart>=0.0.9
+Pillow>=11.0

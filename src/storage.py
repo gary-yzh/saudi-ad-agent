@@ -123,6 +123,19 @@ def _connect() -> sqlite3.Connection:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS brand_logos (
+            session_id TEXT PRIMARY KEY,
+            filename TEXT NOT NULL,
+            path TEXT NOT NULL,
+            bytes INTEGER NOT NULL,
+            width INTEGER,
+            height INTEGER,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
     return conn
 
 
@@ -451,5 +464,54 @@ def delete_brand_manual(session_id: str) -> None:
     with _connect() as conn:
         conn.execute(
             "DELETE FROM brand_manuals WHERE session_id = ?", (session_id,)
+        )
+        conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Brand logos (per-session uploaded image, composited onto stills + hinted to
+# the planner so it leaves room in the bottom-right of every shot)
+# ---------------------------------------------------------------------------
+
+
+def save_brand_logo(
+    *,
+    session_id: str,
+    filename: str,
+    path: str,
+    byte_size: int,
+    width: int | None = None,
+    height: int | None = None,
+) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO brand_logos (session_id, filename, path, bytes, width, height)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT (session_id) DO UPDATE SET
+              filename = excluded.filename,
+              path = excluded.path,
+              bytes = excluded.bytes,
+              width = excluded.width,
+              height = excluded.height,
+              created_at = datetime('now')
+            """,
+            (session_id, filename, path, byte_size, width, height),
+        )
+        conn.commit()
+
+
+def get_brand_logo(session_id: str) -> dict[str, Any] | None:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM brand_logos WHERE session_id = ?", (session_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def delete_brand_logo(session_id: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM brand_logos WHERE session_id = ?", (session_id,)
         )
         conn.commit()

@@ -45,6 +45,12 @@ from .runtime import reset_request_config, set_request_config
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RUNS_DIR = PROJECT_ROOT / "outputs" / "runs"
+LOGOS_DIR = PROJECT_ROOT / "outputs" / "logos"
+
+# Logo overlay: scale relative to the still's width, padding from edges
+LOGO_SCALE = 0.13
+LOGO_MIN_WIDTH = 80
+LOGO_PADDING_FRAC = 0.025
 
 
 # ---------------------------------------------------------------------------
@@ -366,27 +372,114 @@ def _run_with_config(fn, *args, **kwargs):
         reset_request_config(token)
 
 
+def _logo_hint_block(session_id: str) -> str:
+    """If the user uploaded a brand logo, ask Seedream to leave a logo
+    placeholder area (we composite the real logo on top afterwards)."""
+    if storage.get_brand_logo(session_id) is None:
+        return ""
+    return (
+        "\n\nIMPORTANT — LOGO PLACEHOLDER: Reserve a clean, empty area "
+        "(~12% width, bottom-right corner) for the brand logo. Do NOT draw "
+        "any logo, brand mark, watermark, sign-off text, or typography in "
+        "that area. The user has uploaded the real logo separately and it "
+        "will be composited into that space afterwards."
+    )
+
+
+def _composite_logo_onto_image(
+    image_bytes: bytes, logo_path: Path, *, output_path: Path
+) -> dict[str, Any]:
+    """Open the Seedream JPEG, overlay the brand logo in the bottom-right
+    with alpha-aware blending, write to `output_path` as JPEG."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    base = Image.open(BytesIO(image_bytes)).convert("RGBA")
+    logo = Image.open(logo_path).convert("RGBA")
+
+    target_w = max(LOGO_MIN_WIDTH, int(base.width * LOGO_SCALE))
+    target_h = max(1, int(logo.height * (target_w / max(1, logo.width))))
+    logo_resized = logo.resize((target_w, target_h), Image.LANCZOS)
+
+    pad = max(16, int(base.width * LOGO_PADDING_FRAC))
+    x = base.width - target_w - pad
+    y = base.height - target_h - pad
+    base.paste(logo_resized, (x, y), logo_resized)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    out = base.convert("RGB")
+    out.save(output_path, format="JPEG", quality=92)
+    return {
+        "logo_w": target_w,
+        "logo_h": target_h,
+        "pad": pad,
+        "base_size": list(base.size),
+    }
+
+
 def _gen_one_shot(session_id: str, shot: dict) -> None:
+    """Generate (or regenerate) a single shot's still image.
+
+    If the session has an uploaded logo, the visual_prompt is augmented
+    with a "leave a placeholder corner" instruction, the Seedream output
+    is downloaded server-side, the logo is composited, and the local
+    /runs/<sid>/shots/<id>.jpg becomes the display URL. The original
+    Volcengine URL is preserved in metadata.original_url so video gen can
+    still feed it to Seedance (which can't fetch our localhost)."""
     from .tools import bytedance_apis as apis
 
     shot_id = int(shot["id"])
     storage.update_shot_image(session_id, shot_id, status="running")
+
+    logo = storage.get_brand_logo(session_id)
+    base_prompt = shot.get("visual_prompt", "") or shot.get("scene", "")
+    prompt = base_prompt + _logo_hint_block(session_id)
+
     try:
         result = _run_with_config(
-            apis.seedream_generate,
-            prompt=shot.get("visual_prompt", "") or shot.get("scene", ""),
-            aspect="9:16",
+            apis.seedream_generate, prompt=prompt, aspect="9:16"
         )
+        original_url = result["url"]
+        display_url = original_url
+        metadata: dict[str, Any] = dict(result)
+        metadata["original_url"] = original_url
+        metadata["prompt_used"] = prompt[:1500]
+
+        if logo and logo.get("path"):
+            try:
+                with httpx.Client(timeout=60, follow_redirects=True) as client:
+                    img_bytes = client.get(original_url).content
+                out_path = RUNS_DIR / session_id / "shots" / f"{shot_id}.jpg"
+                meta = _composite_logo_onto_image(
+                    img_bytes, Path(logo["path"]), output_path=out_path
+                )
+                display_url = f"/runs/{session_id}/shots/{shot_id}.jpg"
+                metadata["composited"] = True
+                metadata["composite_meta"] = meta
+            except Exception as e:
+                metadata["composite_error"] = str(e)
+                print(
+                    f"[composite shot {shot_id}] failed (non-fatal, falling back "
+                    f"to original URL): {e}",
+                    flush=True,
+                )
+
         storage.update_shot_image(
-            session_id, shot_id, status="succeeded", url=result["url"], metadata=result
+            session_id,
+            shot_id,
+            status="succeeded",
+            url=display_url,
+            metadata=metadata,
         )
     except apis.ContentModerationError as e:
-        # No softening here — the user can re-prompt the chat to revise.
+        # No softening here — the user can re-prompt or hit Retry.
         storage.update_shot_image(
             session_id,
             shot_id,
             status="failed",
             error=f"{e.code}: {e.message}",
+            metadata={"category": "moderation", "code": e.code, "message": e.message},
         )
     except Exception as e:
         storage.update_shot_image(session_id, shot_id, status="failed", error=str(e))
@@ -457,8 +550,23 @@ def _gen_video(session_id: str, selected_ids: list[int]) -> None:
     storyboard = (session or {}).get("storyboard") or {}
     shots = storyboard.get("shots") or []
     images = storage.list_shot_images(session_id)
+    # Seedance fetches reference images from the URL we send, so it must be
+    # publicly reachable. The display URL may point to our local /runs/
+    # composite (which Volcengine can't fetch), so prefer the upstream
+    # Volcengine URL stashed in metadata.original_url when present.
+    def _ref_url(row: dict) -> str | None:
+        md_raw = row.get("metadata_json")
+        if md_raw:
+            try:
+                md = json.loads(md_raw)
+                if md.get("original_url"):
+                    return md["original_url"]
+            except json.JSONDecodeError:
+                pass
+        return row.get("url")
+
     image_url_by_shot: dict[int, str] = {
-        r["shot_id"]: r["url"] for r in images if r.get("url")
+        r["shot_id"]: _ref_url(r) for r in images if _ref_url(r)
     }
 
     # Preserve the user's order; drop shots without a successful image.
@@ -562,6 +670,85 @@ def new_session_id() -> str:
 # ---------------------------------------------------------------------------
 # Brand manual upload — extract text on receipt and stash in SQLite
 # ---------------------------------------------------------------------------
+
+
+def _shot_in_storyboard(session_id: str, shot_id: int) -> dict[str, Any]:
+    session = storage.get_session(session_id)
+    if session is None:
+        raise ValueError(f"Session {session_id} not found")
+    storyboard = session.get("storyboard") or {}
+    shot = next(
+        (s for s in storyboard.get("shots") or [] if int(s["id"]) == int(shot_id)),
+        None,
+    )
+    if shot is None:
+        raise ValueError(f"Shot {shot_id} not in this session's storyboard")
+    return shot
+
+
+def refine_shot(
+    *, session_id: str, shot_id: int, instruction: str, executor: ThreadPoolExecutor
+) -> None:
+    """Re-generate a single shot with an iterative user instruction appended
+    to its visual_prompt."""
+    shot = _shot_in_storyboard(session_id, shot_id)
+    refined_visual = (shot.get("visual_prompt") or "") + (
+        f"\n\nUser refinement (please honor this above all): {instruction.strip()}"
+    )
+    refined_shot = {**shot, "visual_prompt": refined_visual}
+    storage.update_shot_image(session_id, int(shot_id), status="running")
+    executor.submit(_gen_one_shot, session_id, refined_shot)
+
+
+def retry_shot(*, session_id: str, shot_id: int, executor: ThreadPoolExecutor) -> None:
+    """Re-run Seedream for a shot using the original storyboard prompt
+    (used when the previous attempt was rejected by content moderation
+    or failed for any other reason)."""
+    shot = _shot_in_storyboard(session_id, shot_id)
+    storage.update_shot_image(session_id, int(shot_id), status="running")
+    executor.submit(_gen_one_shot, session_id, shot)
+
+
+def save_uploaded_brand_logo(
+    *, session_id: str, filename: str, image_bytes: bytes
+) -> dict[str, Any]:
+    """Persist an uploaded logo PNG/JPG/WEBP into outputs/logos/<sid>/ and
+    record metadata. The image is also composited onto every subsequent
+    Seedream still."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    try:
+        img = Image.open(BytesIO(image_bytes))
+        width, height = img.size
+        fmt = (img.format or "PNG").upper()
+    except Exception as e:
+        raise ValueError(f"Could not read image: {e}") from e
+
+    ext_map = {"PNG": ".png", "JPEG": ".jpg", "JPG": ".jpg", "WEBP": ".webp"}
+    ext = ext_map.get(fmt, ".png")
+
+    logo_dir = LOGOS_DIR / session_id
+    logo_dir.mkdir(parents=True, exist_ok=True)
+    out_path = logo_dir / f"logo{ext}"
+    out_path.write_bytes(image_bytes)
+
+    storage.save_brand_logo(
+        session_id=session_id,
+        filename=filename,
+        path=str(out_path),
+        byte_size=len(image_bytes),
+        width=width,
+        height=height,
+    )
+    return {
+        "filename": filename,
+        "bytes": len(image_bytes),
+        "width": width,
+        "height": height,
+        "format": fmt,
+    }
 
 
 def save_uploaded_brand_manual(*, session_id: str, filename: str, pdf_bytes: bytes) -> dict[str, Any]:

@@ -1266,3 +1266,70 @@ button.secondary:hover { background: var(--bg); }
   color: #8A6A1F;
 }
 .consistency-warnings p { margin: 6px 0 0; }
+
+/* ---------- Per-image refine + retry ---------- */
+.brand-uploads { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.brand-uploads .brand-rag { margin: 0; }
+
+.image-media.moderation-fail { background: #FBE6E6; }
+
+.shot-refine {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.shot-refine-input {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+}
+.shot-refine-input:focus {
+  outline: none;
+  border-color: var(--emerald);
+  background: var(--surface);
+  box-shadow: 0 0 0 2px var(--emerald-light);
+}
+.shot-refine-send {
+  width: 32px;
+  flex-shrink: 0;
+  background: var(--emerald);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.shot-refine-send:hover { background: var(--emerald-dark); }
+
+.shot-retry {
+  padding: 8px 10px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+.shot-retry-btn {
+  width: 100%;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--gold);
+  color: #5C4108;
+  border: 1px solid #B68D34;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.shot-retry-btn:hover { background: #D8B04E; }
+.shot-retry-btn:disabled { opacity: 0.6; cursor: wait; }
+
+.shot-controls-placeholder {
+  padding: 8px 10px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 11.5px;
+}

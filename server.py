@@ -128,12 +128,16 @@ def _session_view(session_id: str) -> dict[str, Any]:
     s = storage.get_session(session_id)
     if s is None:
         raise HTTPException(404, f"Session {session_id} not found")
+    logo = storage.get_brand_logo(session_id)
+    if logo:
+        logo = {k: v for k, v in logo.items() if k != "path"}
     return {
         "session": s,
         "messages": storage.list_messages(session_id),
         "shot_images": storage.list_shot_images(session_id),
         "video": storage.get_video(session_id),
         "brand_manual": storage.get_brand_manual(session_id),
+        "brand_logo": logo,
     }
 
 
@@ -223,6 +227,87 @@ def get_brand_manual(sid: str) -> JSONResponse:
 @app.delete("/api/sessions/{sid}/brand-manual")
 def remove_brand_manual(sid: str) -> JSONResponse:
     storage.delete_brand_manual(sid)
+    return JSONResponse({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Brand logo (composited onto every still as a deterministic overlay)
+# ---------------------------------------------------------------------------
+
+MAX_BRAND_LOGO_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+@app.post("/api/sessions/{sid}/brand-logo")
+async def upload_brand_logo(sid: str, file: UploadFile = File(...)) -> JSONResponse:
+    if storage.get_session(sid) is None:
+        raise HTTPException(404, "Session not found")
+    name_lower = (file.filename or "").lower()
+    if not any(name_lower.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".webp")):
+        raise HTTPException(400, "Only PNG / JPG / WEBP images are accepted.")
+    contents = await file.read()
+    if len(contents) > MAX_BRAND_LOGO_BYTES:
+        raise HTTPException(
+            413,
+            f"Logo is {len(contents) // 1024} KB, max {MAX_BRAND_LOGO_BYTES // 1024} KB.",
+        )
+    try:
+        info = sessions.save_uploaded_brand_logo(
+            session_id=sid, filename=file.filename, image_bytes=contents
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return JSONResponse({"ok": True, "logo": info})
+
+
+@app.get("/api/sessions/{sid}/brand-logo")
+def get_brand_logo(sid: str) -> JSONResponse:
+    if storage.get_session(sid) is None:
+        raise HTTPException(404, "Session not found")
+    logo = storage.get_brand_logo(sid)
+    if not logo:
+        return JSONResponse({})
+    # Don't expose the on-disk path in the API
+    public = {k: v for k, v in logo.items() if k != "path"}
+    return JSONResponse(public)
+
+
+@app.delete("/api/sessions/{sid}/brand-logo")
+def remove_brand_logo(sid: str) -> JSONResponse:
+    storage.delete_brand_logo(sid)
+    return JSONResponse({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Shot-level operations: refine (iterative) + retry (after moderation)
+# ---------------------------------------------------------------------------
+
+
+class RefineShotRequest(BaseModel):
+    instruction: str = Field(..., min_length=1, max_length=2000)
+
+
+@app.post("/api/sessions/{sid}/shots/{shot_id}/refine")
+def refine_shot(sid: str, shot_id: int, req: RefineShotRequest) -> JSONResponse:
+    _require_keys()
+    try:
+        sessions.refine_shot(
+            session_id=sid,
+            shot_id=shot_id,
+            instruction=req.instruction,
+            executor=_executor,
+        )
+    except ValueError as e:
+        raise HTTPException(404, str(e)) from e
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/sessions/{sid}/shots/{shot_id}/retry")
+def retry_shot(sid: str, shot_id: int) -> JSONResponse:
+    _require_keys()
+    try:
+        sessions.retry_shot(session_id=sid, shot_id=shot_id, executor=_executor)
+    except ValueError as e:
+        raise HTTPException(404, str(e)) from e
     return JSONResponse({"ok": True})
 
 
