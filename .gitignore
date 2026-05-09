@@ -17,6 +17,10 @@ env/
 # Run artefacts (regenerated each invocation)
 outputs/runs/
 
+# SQLite settings store (contains API keys)
+data/app.db
+data/app.db-journal
+
 # Logs
 *.log
 

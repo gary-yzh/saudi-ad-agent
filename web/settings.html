@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings · Saudi Ad Agent</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>Saudi Ad Agent</h1>
+        <p class="subtitle">Settings — model & API configuration</p>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="/">Run</a>
+      <a href="/settings" class="active">Settings</a>
+    </nav>
+  </header>
+
+  <main class="settings-main">
+    <form id="settings-form" autocomplete="off">
+
+      <!-- LLM section ------------------------------------------------------->
+      <section class="card settings-section">
+        <header class="settings-head">
+          <h2>1 · LLM <span class="muted">(OpenAI-compatible)</span></h2>
+          <span class="api-status missing" id="llm-status">missing</span>
+        </header>
+        <p class="muted small section-desc">
+          Drives the Planner, Guardrail-judge, Eval-judge and the prompt-softening retry
+          on safety-filter rejections.
+        </p>
+
+        <label class="api-label">
+          <span>API Key <em class="req">required</em></span>
+          <div class="api-input-row">
+            <input id="openai_api_key" name="openai_api_key" type="password" placeholder="sk-..." spellcheck="false">
+            <button type="button" class="icon-btn" data-toggle="openai_api_key" title="Show / hide">👁</button>
+          </div>
+        </label>
+        <div class="api-row">
+          <label class="api-label">
+            <span>Base URL</span>
+            <input id="openai_base_url" name="openai_base_url" type="text" placeholder="https://api.openai.com/v1">
+          </label>
+          <label class="api-label">
+            <span>Model</span>
+            <input id="openai_model" name="openai_model" type="text" placeholder="gpt-4o-mini">
+          </label>
+        </div>
+        <p class="api-hint">
+          Common base URLs:
+          <code>https://dashscope.aliyuncs.com/compatible-mode/v1</code> (Qwen),
+          <code>https://ark.cn-beijing.volces.com/api/v3</code> (Doubao chat),
+          <code>https://api.deepseek.com/v1</code>, <code>https://api.openai.com/v1</code>.
+        </p>
+      </section>
+
+      <!-- Image + Video section --------------------------------------------->
+      <section class="card settings-section">
+        <header class="settings-head">
+          <h2>2 · Image + Video <span class="muted">(Volcengine Ark · Doubao)</span></h2>
+          <span class="api-status missing" id="ark-status">missing</span>
+        </header>
+        <p class="muted small section-desc">
+          Doubao Seedream renders the still synchronously. Doubao Seedance creates an
+          async video task and we poll until it's ready (typically 3-5 min).
+        </p>
+
+        <label class="api-label">
+          <span>Ark API Key <em class="req">required</em></span>
+          <div class="api-input-row">
+            <input id="ark_api_key" name="ark_api_key" type="password" placeholder="..." spellcheck="false">
+            <button type="button" class="icon-btn" data-toggle="ark_api_key" title="Show / hide">👁</button>
+          </div>
+        </label>
+        <label class="api-label">
+          <span>Ark Base URL</span>
+          <input id="ark_base_url" name="ark_base_url" type="text" placeholder="https://ark.cn-beijing.volces.com/api/v3">
+        </label>
+
+        <div class="api-subhead">Image · Doubao Seedream</div>
+        <div class="api-row">
+          <label class="api-label">
+            <span>Model</span>
+            <input id="image_model" name="image_model" type="text" placeholder="doubao-seedream-5-0-260128">
+          </label>
+          <label class="api-label">
+            <span>Size</span>
+            <select id="image_size" name="image_size">
+              <option value="">2K (default)</option>
+              <option value="1K">1K</option>
+              <option value="2K">2K</option>
+              <option value="4K">4K</option>
+              <option value="1024x1792">1024 × 1792 (9:16)</option>
+              <option value="1792x1024">1792 × 1024 (16:9)</option>
+            </select>
+          </label>
+        </div>
+        <label class="api-label inline">
+          <input id="image_watermark" name="image_watermark" type="checkbox">
+          <span>Add image watermark</span>
+        </label>
+
+        <div class="api-subhead">Video · Doubao Seedance</div>
+        <label class="api-label">
+          <span>Model</span>
+          <input id="video_model" name="video_model" type="text" placeholder="doubao-seedance-2-0-260128">
+        </label>
+        <div class="api-row">
+          <label class="api-label">
+            <span>Aspect ratio</span>
+            <select id="video_ratio" name="video_ratio">
+              <option value="">9:16 (default)</option>
+              <option value="9:16">9:16</option>
+              <option value="16:9">16:9</option>
+              <option value="1:1">1:1</option>
+              <option value="4:3">4:3</option>
+              <option value="3:4">3:4</option>
+            </select>
+          </label>
+          <label class="api-label">
+            <span>Duration (seconds)</span>
+            <input id="video_duration" name="video_duration" type="number" min="3" max="15" step="1" placeholder="5">
+          </label>
+        </div>
+        <label class="api-label inline">
+          <input id="video_generate_audio" name="video_generate_audio" type="checkbox">
+          <span>Have Seedance generate background audio</span>
+        </label>
+        <label class="api-label inline">
+          <input id="video_watermark" name="video_watermark" type="checkbox">
+          <span>Add video watermark</span>
+        </label>
+        <p class="api-hint warn">
+          ⚠ Video generation typically takes 1–5 minutes per run and bills per second of output.
+        </p>
+      </section>
+
+      <!-- TTS section ------------------------------------------------------->
+      <section class="card settings-section">
+        <header class="settings-head">
+          <h2>3 · Voiceover <span class="muted">(ByteDance OpenSpeech · Doubao TTS)</span></h2>
+          <span class="api-status missing" id="tts-status">missing</span>
+        </header>
+        <p class="muted small section-desc">
+          The TTS endpoint streams base64 audio chunks; the server collects, decodes and
+          writes the result under <code>outputs/runs/&lt;id&gt;/voice.&lt;format&gt;</code>.
+        </p>
+
+        <label class="api-label">
+          <span>TTS API Key <em class="req">required</em></span>
+          <div class="api-input-row">
+            <input id="tts_api_key" name="tts_api_key" type="password" placeholder="..." spellcheck="false">
+            <button type="button" class="icon-btn" data-toggle="tts_api_key" title="Show / hide">👁</button>
+          </div>
+        </label>
+        <div class="api-row">
+          <label class="api-label">
+            <span>TTS URL</span>
+            <input id="tts_url" name="tts_url" type="text" placeholder="https://openspeech.bytedance.com/api/v3/tts/unidirectional">
+          </label>
+          <label class="api-label">
+            <span>Resource ID</span>
+            <select id="tts_resource_id" name="tts_resource_id">
+              <option value="">seed-tts-2.0 (default)</option>
+              <option value="seed-tts-2.0">seed-tts-2.0</option>
+              <option value="seed-tts-1.0">seed-tts-1.0</option>
+              <option value="seed-tts-1.0-concurr">seed-tts-1.0-concurr</option>
+              <option value="seed-icl-2.0">seed-icl-2.0 (voice cloning)</option>
+              <option value="seed-icl-1.0">seed-icl-1.0</option>
+            </select>
+          </label>
+        </div>
+        <label class="api-label">
+          <span>Speaker (voice ID)</span>
+          <input id="tts_speaker" name="tts_speaker" type="text" placeholder="zh_female_shuangkuaisisi_moon_bigtts">
+        </label>
+
+        <div class="api-subhead">Audio output</div>
+        <div class="api-row">
+          <label class="api-label">
+            <span>Format</span>
+            <select id="tts_format" name="tts_format">
+              <option value="">mp3 (default)</option>
+              <option value="mp3">mp3</option>
+              <option value="wav">wav</option>
+              <option value="pcm">pcm</option>
+              <option value="ogg_opus">ogg_opus</option>
+            </select>
+          </label>
+          <label class="api-label">
+            <span>Sample rate</span>
+            <select id="tts_sample_rate" name="tts_sample_rate">
+              <option value="">24000 (default)</option>
+              <option value="8000">8000</option>
+              <option value="16000">16000</option>
+              <option value="22050">22050</option>
+              <option value="24000">24000</option>
+              <option value="32000">32000</option>
+              <option value="44100">44100</option>
+              <option value="48000">48000</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="api-subhead">Delivery</div>
+        <div class="api-row">
+          <label class="api-label">
+            <span>Speech rate <em class="muted">(-50 → 100)</em></span>
+            <input id="tts_speech_rate" name="tts_speech_rate" type="number" min="-50" max="100" step="1" placeholder="0">
+          </label>
+          <label class="api-label">
+            <span>Loudness rate <em class="muted">(-50 → 100)</em></span>
+            <input id="tts_loudness_rate" name="tts_loudness_rate" type="number" min="-50" max="100" step="1" placeholder="0">
+          </label>
+        </div>
+        <div class="api-row">
+          <label class="api-label">
+            <span>Emotion</span>
+            <input id="tts_emotion" name="tts_emotion" type="text" placeholder="e.g. happy, angry, calm">
+          </label>
+          <label class="api-label">
+            <span>Emotion scale <em class="muted">(1 → 5)</em></span>
+            <input id="tts_emotion_scale" name="tts_emotion_scale" type="number" min="1" max="5" step="1" placeholder="4">
+          </label>
+        </div>
+
+        <details>
+          <summary>Advanced</summary>
+          <div class="api-row">
+            <label class="api-label">
+              <span>Tail silence (ms)</span>
+              <input id="tts_silence_duration" name="tts_silence_duration" type="number" min="0" max="30000" step="50" placeholder="0">
+            </label>
+            <label class="api-label">
+              <span>Explicit language</span>
+              <input id="tts_explicit_language" name="tts_explicit_language" type="text" placeholder="zh-cn / en / ja / es-mx / id / pt-br …">
+            </label>
+          </div>
+        </details>
+      </section>
+
+      <div class="settings-actions">
+        <button type="submit" id="save-btn">Save settings</button>
+        <button type="button" id="clear-btn" class="secondary">Clear all</button>
+        <span id="save-toast" class="save-toast hidden"></span>
+      </div>
+    </form>
+  </main>
+
+  <footer>
+    Settings are stored locally in <code>data/app.db</code> (SQLite). Never committed to git.
+  </footer>
+
+  <script src="/static/settings.js"></script>
+</body>
+</html>
