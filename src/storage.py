@@ -1,12 +1,17 @@
-"""SQLite-backed persistence for model / API configuration.
+"""SQLite-backed persistence.
 
-Single-table key-value store. The frontend Settings page reads / writes via
-GET / POST /api/config. The Run page never sees the values — when /api/run
-fires, the FastAPI handler loads from this store into the per-request
-contextvar (`runtime.set_request_config`) that the LangGraph nodes read.
+Two concerns share one DB file (`data/app.db`):
 
-DB lives at `data/app.db`. The schema is created on first connect, so a
-brand-new install just works.
+1. **Settings** — long-lived model / API config (`config` table). Read via
+   `load_config()`, written by `POST /api/config`.
+
+2. **Sessions** — the new multi-step ad-creation flow:
+   - `sessions`     — one row per user session, holds run-level state.
+   - `messages`     — chat history (user ↔ assistant).
+   - `shot_images`  — one row per storyboard shot's generated image.
+   - `videos`       — one row per video gen request.
+
+Sessions are read / written by `src/sessions.py`.
 """
 from __future__ import annotations
 
@@ -18,53 +23,90 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / "data" / "app.db"
 
-# Allowlist — keys outside this set are silently dropped on save. These names
-# match the kwarg names accepted by `runtime.set_request_config`, so loading
-# the config and splatting it into that function "just works".
+
+# ---------------------------------------------------------------------------
+# Settings — config key/value table
+# ---------------------------------------------------------------------------
+
 ALLOWED_KEYS: set[str] = {
-    # LLM (OpenAI-compatible)
-    "openai_api_key",
-    "openai_base_url",
-    "openai_model",
-    # Volcengine Ark — image + video
-    "ark_api_key",
-    "ark_base_url",
-    "image_model",
-    "image_size",
-    "image_watermark",
-    "video_model",
-    "video_ratio",
-    "video_duration",
-    "video_generate_audio",
-    "video_watermark",
-    # ByteDance OpenSpeech — TTS
-    "tts_api_key",
-    "tts_url",
-    "tts_resource_id",
-    "tts_speaker",
-    "tts_format",
-    "tts_sample_rate",
-    "tts_speech_rate",
-    "tts_loudness_rate",
-    "tts_emotion",
-    "tts_emotion_scale",
-    "tts_silence_duration",
-    "tts_explicit_language",
+    "openai_api_key", "openai_base_url", "openai_model",
+    "ark_api_key", "ark_base_url",
+    "image_model", "image_size", "image_watermark",
+    "video_model", "video_ratio", "video_duration", "video_generate_audio", "video_watermark",
+    "tts_api_key", "tts_url", "tts_resource_id", "tts_speaker", "tts_format",
+    "tts_sample_rate", "tts_speech_rate", "tts_loudness_rate",
+    "tts_emotion", "tts_emotion_scale", "tts_silence_duration", "tts_explicit_language",
 }
 
 REQUIRED_KEYS: tuple[str, ...] = ("openai_api_key", "ark_api_key", "tts_api_key")
-
-SECRET_KEYS: tuple[str, ...] = ("openai_api_key", "ark_api_key", "tts_api_key")
 
 
 def _connect() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS config (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS sessions (
+            id TEXT PRIMARY KEY,
+            locale TEXT,
+            target_audience TEXT,
+            state TEXT NOT NULL DEFAULT 'chat',
+            storyboard_json TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            payload_json TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS shot_images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            shot_id INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            url TEXT,
+            error TEXT,
+            metadata_json TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(session_id, shot_id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS videos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL UNIQUE,
+            selected_shot_ids_json TEXT NOT NULL,
+            status TEXT NOT NULL,
+            remote_url TEXT,
+            local_url TEXT,
+            error TEXT,
+            metadata_json TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
         """
@@ -81,31 +123,22 @@ def _is_empty(v: Any) -> bool:
 
 
 def load_config() -> dict[str, Any]:
-    """Return the saved config as a dict. Booleans/numbers come back typed."""
     with _connect() as conn:
         rows = conn.execute("SELECT key, value FROM config").fetchall()
     out: dict[str, Any] = {}
-    for k, v in rows:
+    for r in rows:
         try:
-            out[k] = json.loads(v)
+            out[r["key"]] = json.loads(r["value"])
         except (TypeError, json.JSONDecodeError):
-            out[k] = v
+            out[r["key"]] = r["value"]
     return out
 
 
 def save_config(updates: dict[str, Any], *, replace_missing: bool = True) -> None:
-    """Persist a settings dict.
-
-    - Keys outside ALLOWED_KEYS are silently ignored (defense in depth).
-    - Empty values delete the row (so the env-var fallback can take over).
-    - When `replace_missing` is True (the default — settings page always
-      submits the whole form), any saved key not present in `updates` is
-      also deleted.
-    """
     filtered = {k: v for k, v in updates.items() if k in ALLOWED_KEYS}
     with _connect() as conn:
         if replace_missing:
-            existing = {r[0] for r in conn.execute("SELECT key FROM config").fetchall()}
+            existing = {r["key"] for r in conn.execute("SELECT key FROM config").fetchall()}
             for k in existing - filtered.keys():
                 conn.execute("DELETE FROM config WHERE key = ?", (k,))
         for k, v in filtered.items():
@@ -117,8 +150,7 @@ def save_config(updates: dict[str, Any], *, replace_missing: bool = True) -> Non
                     INSERT INTO config (key, value, updated_at)
                     VALUES (?, ?, datetime('now'))
                     ON CONFLICT (key) DO UPDATE SET
-                      value = excluded.value,
-                      updated_at = excluded.updated_at
+                      value = excluded.value, updated_at = excluded.updated_at
                     """,
                     (k, json.dumps(v, ensure_ascii=False)),
                 )
@@ -131,10 +163,221 @@ def has_required_keys() -> bool:
 
 
 def status() -> dict[str, Any]:
-    """Lightweight status payload for the Run page nav badge."""
     cfg = load_config()
     return {
         "configured": all(not _is_empty(cfg.get(k)) for k in REQUIRED_KEYS),
         "missing": [k for k in REQUIRED_KEYS if _is_empty(cfg.get(k))],
         "set_keys": sorted(k for k in cfg if not _is_empty(cfg.get(k))),
     }
+
+
+# ---------------------------------------------------------------------------
+# Sessions
+# ---------------------------------------------------------------------------
+
+# Session lifecycle states (string enum):
+#   chat            — clarifying conversation in progress
+#   storyboard_draft — assistant proposed a storyboard, awaiting confirm
+#   images_running   — image gen kicked off
+#   images_done      — all shots have a status (succeeded or failed)
+#   video_running    — video gen kicked off
+#   video_done       — local video file ready
+
+
+def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    return dict(row)
+
+
+def create_session(*, session_id: str, locale: str, target_audience: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO sessions (id, locale, target_audience, state) VALUES (?, ?, ?, 'chat')",
+            (session_id, locale, target_audience),
+        )
+        conn.commit()
+
+
+def get_session(session_id: str) -> dict[str, Any] | None:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM sessions WHERE id = ?", (session_id,)
+        ).fetchone()
+    out = _row_to_dict(row)
+    if out and out.get("storyboard_json"):
+        try:
+            out["storyboard"] = json.loads(out["storyboard_json"])
+        except json.JSONDecodeError:
+            out["storyboard"] = None
+    elif out:
+        out["storyboard"] = None
+    return out
+
+
+def update_session_state(session_id: str, state: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE sessions SET state = ?, updated_at = datetime('now') WHERE id = ?",
+            (state, session_id),
+        )
+        conn.commit()
+
+
+def update_session_storyboard(session_id: str, storyboard: dict | None) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """
+            UPDATE sessions
+            SET storyboard_json = ?, state = 'storyboard_draft', updated_at = datetime('now')
+            WHERE id = ?
+            """,
+            (json.dumps(storyboard, ensure_ascii=False) if storyboard else None, session_id),
+        )
+        conn.commit()
+
+
+def add_message(*, session_id: str, role: str, content: str, payload: dict | None = None) -> int:
+    with _connect() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO messages (session_id, role, content, payload_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (session_id, role, content, json.dumps(payload, ensure_ascii=False) if payload else None),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def list_messages(session_id: str) -> list[dict[str, Any]]:
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM messages WHERE session_id = ? ORDER BY id ASC",
+            (session_id,),
+        ).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        if d.get("payload_json"):
+            try:
+                d["payload"] = json.loads(d["payload_json"])
+            except json.JSONDecodeError:
+                d["payload"] = None
+        else:
+            d["payload"] = None
+        out.append(d)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Shot images
+# ---------------------------------------------------------------------------
+
+
+def queue_shot_image(session_id: str, shot_id: int) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO shot_images (session_id, shot_id, status)
+            VALUES (?, ?, 'queued')
+            ON CONFLICT (session_id, shot_id) DO UPDATE SET
+              status = 'queued', url = NULL, error = NULL, updated_at = datetime('now')
+            """,
+            (session_id, shot_id),
+        )
+        conn.commit()
+
+
+def update_shot_image(
+    session_id: str,
+    shot_id: int,
+    *,
+    status: str,
+    url: str | None = None,
+    error: str | None = None,
+    metadata: dict | None = None,
+) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """
+            UPDATE shot_images
+            SET status = ?, url = ?, error = ?, metadata_json = ?, updated_at = datetime('now')
+            WHERE session_id = ? AND shot_id = ?
+            """,
+            (
+                status,
+                url,
+                error,
+                json.dumps(metadata, ensure_ascii=False) if metadata else None,
+                session_id,
+                shot_id,
+            ),
+        )
+        conn.commit()
+
+
+def list_shot_images(session_id: str) -> list[dict[str, Any]]:
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM shot_images WHERE session_id = ? ORDER BY shot_id ASC",
+            (session_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Videos
+# ---------------------------------------------------------------------------
+
+
+def upsert_video(
+    *,
+    session_id: str,
+    selected_shot_ids: list[int],
+    status: str,
+    remote_url: str | None = None,
+    local_url: str | None = None,
+    error: str | None = None,
+    metadata: dict | None = None,
+) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO videos (session_id, selected_shot_ids_json, status, remote_url, local_url, error, metadata_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (session_id) DO UPDATE SET
+              selected_shot_ids_json = excluded.selected_shot_ids_json,
+              status = excluded.status,
+              remote_url = COALESCE(excluded.remote_url, videos.remote_url),
+              local_url = COALESCE(excluded.local_url, videos.local_url),
+              error = excluded.error,
+              metadata_json = COALESCE(excluded.metadata_json, videos.metadata_json),
+              updated_at = datetime('now')
+            """,
+            (
+                session_id,
+                json.dumps(selected_shot_ids),
+                status,
+                remote_url,
+                local_url,
+                error,
+                json.dumps(metadata, ensure_ascii=False) if metadata else None,
+            ),
+        )
+        conn.commit()
+
+
+def get_video(session_id: str) -> dict[str, Any] | None:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM videos WHERE session_id = ?", (session_id,)
+        ).fetchone()
+    if row is None:
+        return None
+    d = dict(row)
+    try:
+        d["selected_shot_ids"] = json.loads(d.get("selected_shot_ids_json") or "[]")
+    except json.JSONDecodeError:
+        d["selected_shot_ids"] = []
+    return d

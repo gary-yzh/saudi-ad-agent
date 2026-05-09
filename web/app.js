@@ -1,7 +1,13 @@
-// Run page — brief → /api/run → render storyboard, assets, eval, and a
-// pipeline timeline showing every node + every moderation hit / softening.
-// Settings live server-side now; this page only reads /api/config/status to
-// gate the Generate button and surface a "go to Settings" hint.
+// Multi-step ad-creation flow.
+// State machine:
+//   chat               (user types brief, LLM may ask clarifying Qs)
+//   storyboard_draft   (assistant proposed a storyboard; user can confirm or refine)
+//   images_running     (Seedream calls fanned out, polling)
+//   images_done        (user picks shots)
+//   video_running      (Seedance call running, polling)
+//   video_done         (local mp4 playable)
+//
+// Session id lives in localStorage so a page reload resumes the same flow.
 
 const SAMPLE_BRIEF =
   "Promote our premium Ajwa dates collection for the upcoming Ramadan campaign. " +
@@ -9,160 +15,206 @@ const SAMPLE_BRIEF =
   "Single 9:16 short-form video, ≤15 seconds, bilingual (Arabic VO + English overlay). " +
   "Objective: drive product page visits.";
 
+const STORE_KEY = "saa.session_id";
 const $ = (id) => document.getElementById(id);
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 
-// ---------- Status gating ----------------------------------------------------
+let SESSION_ID = null;
+let imagePollHandle = null;
+let videoPollHandle = null;
+
+// ---------- Boot ------------------------------------------------------------
+(async function init() {
+  await refreshConfigBadge();
+
+  $("load-sample").addEventListener("click", () => {
+    $("chat-input").value = SAMPLE_BRIEF;
+    $("chat-input").dispatchEvent(new Event("input"));
+    $("chat-input").focus();
+  });
+
+  $("chat-input").addEventListener("input", () => {
+    $("chat-send").disabled = $("chat-input").value.trim().length === 0;
+  });
+
+  $("chat-form").addEventListener("submit", onSendMessage);
+  $("confirm-storyboard-btn").addEventListener("click", onConfirmStoryboard);
+  $("generate-video-btn").addEventListener("click", onGenerateVideo);
+  $("new-session-btn").addEventListener("click", onNewSession);
+
+  const stored = localStorage.getItem(STORE_KEY);
+  if (stored) {
+    SESSION_ID = stored;
+    try {
+      const view = await fetch(`/api/sessions/${SESSION_ID}`).then((r) => {
+        if (!r.ok) throw new Error("404");
+        return r.json();
+      });
+      restoreView(view);
+    } catch {
+      // session no longer exists server-side
+      localStorage.removeItem(STORE_KEY);
+      SESSION_ID = null;
+    }
+  }
+})();
+
+// ---------- Config status ---------------------------------------------------
 async function refreshConfigBadge() {
   let status;
   try {
-    const r = await fetch("/api/config/status");
-    status = await r.json();
+    status = await fetch("/api/config/status").then((r) => r.json());
   } catch {
     status = { configured: false, missing: ["?"] };
   }
   const badge = $("config-badge");
   if (status.configured) {
     badge.textContent = "READY";
-    badge.title = "All required keys configured.";
+    badge.title = "All keys configured.";
     badge.className = "mode-badge live";
-    $("run-btn").disabled = false;
-    $("run-gate").classList.add("hidden");
   } else {
     const miss = (status.missing || []).map((k) => k.replace(/^openai_/, "llm/")).join(", ");
     badge.textContent = `UNCONFIGURED · ${miss}`;
     badge.title = "Open Settings and fill in the missing keys.";
     badge.className = "mode-badge unconfigured";
-    $("run-btn").disabled = true;
-    $("run-gate").classList.remove("hidden");
+  }
+  return status.configured;
+}
+
+// ---------- Session lifecycle ----------------------------------------------
+async function ensureSession() {
+  if (SESSION_ID) return SESSION_ID;
+  const r = await fetch("/api/sessions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ locale: $("locale").value }),
+  });
+  const j = await r.json();
+  SESSION_ID = j.id;
+  localStorage.setItem(STORE_KEY, SESSION_ID);
+  return SESSION_ID;
+}
+
+async function onNewSession() {
+  if (!confirm("Start a fresh session? The current chat / images / video will stay on disk but be hidden.")) return;
+  // Stop any active pollers
+  if (imagePollHandle) { clearInterval(imagePollHandle); imagePollHandle = null; }
+  if (videoPollHandle) { clearInterval(videoPollHandle); videoPollHandle = null; }
+  SESSION_ID = null;
+  localStorage.removeItem(STORE_KEY);
+  // Reset UI
+  $("chat-log").innerHTML = "";
+  $("chat-empty").classList.remove("hidden");
+  $("storyboard-panel").classList.add("hidden");
+  $("images-panel").classList.add("hidden");
+  $("video-panel").classList.add("hidden");
+  $("chat-input").value = "";
+  $("chat-send").disabled = true;
+}
+
+// ---------- Restore from server-side state ---------------------------------
+function restoreView(view) {
+  const { session, messages, shot_images, video } = view;
+  if (messages.length) $("chat-empty").classList.add("hidden");
+
+  for (const m of messages) renderChatMessage(m.role, m.content, m.payload);
+
+  if (session.storyboard) {
+    showStoryboard(session.storyboard, /* enableConfirm */ session.state === "storyboard_draft");
+  }
+  if (shot_images.length) {
+    showImageGrid(session.storyboard?.shots || [], shot_images);
+    if (session.state === "images_running") startImagePolling();
+  }
+  if (video) {
+    showVideoPanel(video);
+    if (video.status === "queued" || video.status === "running") startVideoPolling();
   }
 }
 
-// ---------- Sample brief -----------------------------------------------------
-$("load-sample").addEventListener("click", () => {
-  $("brief").value = SAMPLE_BRIEF;
-  $("brief").focus();
-});
-
-// ---------- Submit -----------------------------------------------------------
-$("brief-form").addEventListener("submit", async (e) => {
+// ---------- Chat ------------------------------------------------------------
+async function onSendMessage(e) {
   e.preventDefault();
-  const brief = $("brief").value.trim();
-  if (brief.length < 10) return;
-  if ($("run-btn").disabled) return;
+  const text = $("chat-input").value.trim();
+  if (!text) return;
+  if (!(await refreshConfigBadge())) {
+    alert("Configure API keys in /settings first.");
+    return;
+  }
 
-  showLoading();
-  startStepsAnimation();
+  await ensureSession();
+
+  $("chat-empty").classList.add("hidden");
+  renderChatMessage("user", text);
+  $("chat-input").value = "";
+  $("chat-send").disabled = true;
+
+  // Render a placeholder assistant message we'll replace
+  const pendingId = renderChatPending();
 
   try {
-    const res = await fetch("/api/run", {
+    const r = await fetch(`/api/sessions/${SESSION_ID}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        brief,
-        locale: $("locale").value,
-        target_audience: $("audience").value || "Saudi adults 25-45, parents, urban",
-      }),
+      body: JSON.stringify({ content: text }),
     });
-    if (!res.ok) {
-      let msg = `HTTP ${res.status}`;
-      try {
-        const j = await res.json();
-        msg += ` — ${j.detail || JSON.stringify(j)}`;
-      } catch {
-        msg += ` — ${(await res.text()).slice(0, 800)}`;
-      }
-      throw new Error(msg);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.detail || `HTTP ${r.status}`);
     }
-    const data = await res.json();
-    completeSteps();
-    setTimeout(() => render(data), 200);
+    const data = await r.json();
+    const reply = data.reply || {};
+
+    removeChatPending(pendingId);
+    if (reply.action === "ask") {
+      renderChatMessage("assistant", reply.question);
+    } else if (reply.action === "storyboard") {
+      const intro = reply.summary || "Here's a draft storyboard.";
+      renderChatMessage("assistant", intro, { action: "storyboard" });
+      showStoryboard(reply.storyboard, /* enableConfirm */ true);
+    }
   } catch (err) {
-    showError(err.message || String(err));
+    removeChatPending(pendingId);
+    renderChatMessage("assistant", `⚠ ${err.message || err}`, { kind: "error" });
+  } finally {
+    $("chat-send").disabled = $("chat-input").value.trim().length === 0;
   }
-});
-
-function showLoading() {
-  $("placeholder").classList.add("hidden");
-  $("result").classList.add("hidden");
-  $("error").classList.add("hidden");
-  $("loading").classList.remove("hidden");
-  $("run-btn").disabled = true;
-  $("run-btn").textContent = "Running…";
-  $("loading-sub").textContent =
-    "Calling Doubao. Image is fast; Seedance video typically takes 3–5 min, " +
-    "but can queue up to 30 min on busy days. Don't close this tab.";
-  document.querySelectorAll("#steps li").forEach((li) => {
-    li.classList.remove("active", "done");
-  });
 }
 
-function startStepsAnimation() {
-  // Front-load the first three steps; tool_use stays "active" through the
-  // long video-gen wait. Success handler marks all done.
-  const seq = [
-    { id: "rag", at: 0 },
-    { id: "planner", at: 600 },
-    { id: "guardrail", at: 4500 },
-    { id: "tool_use", at: 6000 },
-  ];
-  let prevId = null;
-  seq.forEach(({ id, at }) => {
-    setTimeout(() => {
-      if (prevId) {
-        const prev = document.querySelector(`#steps li[data-step="${prevId}"]`);
-        if (prev) {
-          prev.classList.remove("active");
-          prev.classList.add("done");
-        }
-      }
-      const el = document.querySelector(`#steps li[data-step="${id}"]`);
-      if (el) el.classList.add("active");
-      prevId = id;
-    }, at);
-  });
+function renderChatMessage(role, content, payload = null) {
+  const li = document.createElement("li");
+  li.className = `chat-msg chat-${role}` + (payload?.kind === "error" ? " chat-error" : "");
+  li.innerHTML =
+    `<span class="chat-role">${role === "user" ? "You" : "Agent"}</span>` +
+    `<div class="chat-bubble">${escapeHtml(content)}</div>`;
+  $("chat-log").appendChild(li);
+  li.scrollIntoView({ behavior: "smooth", block: "end" });
+  return li;
 }
 
-function completeSteps() {
-  document.querySelectorAll("#steps li").forEach((li) => {
-    li.classList.remove("active");
-    li.classList.add("done");
-  });
+function renderChatPending() {
+  const id = "pending-" + Date.now();
+  const li = document.createElement("li");
+  li.className = "chat-msg chat-assistant chat-pending";
+  li.id = id;
+  li.innerHTML = `<span class="chat-role">Agent</span><div class="chat-bubble"><span class="dots"><i></i><i></i><i></i></span></div>`;
+  $("chat-log").appendChild(li);
+  li.scrollIntoView({ behavior: "smooth", block: "end" });
+  return id;
 }
 
-// ---------- Render -----------------------------------------------------------
-function render(data) {
-  $("loading").classList.add("hidden");
-  $("result").classList.remove("hidden");
-  $("run-btn").disabled = false;
-  $("run-btn").textContent = "Generate creative";
-  refreshConfigBadge();
+function removeChatPending(id) {
+  const el = $(id);
+  if (el) el.remove();
+}
 
-  const sb = data.storyboard || {};
+// ---------- Storyboard preview ---------------------------------------------
+function showStoryboard(sb, enableConfirm) {
+  $("storyboard-panel").classList.remove("hidden");
+  $("sb-hook").textContent = sb.hook || "—";
+  $("sb-cta").textContent = sb.cta || "—";
 
-  let runLine = `run · ${data.run_id || ""}`;
-  if (data._llm_model) runLine += `  ·  LLM: ${data._llm_model}`;
-  if (data._image_model) runLine += `  ·  ${data._image_model}`;
-  if (data._video_model) runLine += `  ·  ${data._video_model}`;
-  if (data._tts_resource_id) runLine += `  ·  ${data._tts_resource_id}`;
-  $("run-id").textContent = runLine;
-
-  const status = data.eval_status || "fail";
-  const badge = $("status-badge");
-  badge.textContent = status;
-  badge.classList.toggle("pass", status === "pass");
-  badge.classList.toggle("fail", status !== "pass");
-
-  const ctrPct = (data.ctr_estimate || 0) * 100;
-  $("ctr-value").textContent = `${ctrPct.toFixed(2)}%`;
-
-  setText("sb-hook", sb.hook);
-  setText("sb-body", sb.body);
-  setText("sb-cta", sb.cta);
-  setText("sb-visual", sb.visual_prompt);
-  setText("sb-motion", sb.motion_prompt);
-  // Voiceover may be RTL (Arabic) or LTR depending on locale
   const vo = sb.voiceover || "";
   const voEl = $("sb-vo");
   voEl.textContent = vo || "—";
@@ -170,175 +222,225 @@ function render(data) {
   voEl.classList.toggle("rtl", isArabic);
   if (isArabic) voEl.setAttribute("lang", "ar");
   else voEl.removeAttribute("lang");
-  setText("sb-voice", sb.voice);
 
-  // Asset previews + URL list
-  setLink("image-url", data.image_url);
-  setLink("video-url", data.video_url);
-  setLink("audio-url", data.audio_url);
-  $("image-preview").src = data.image_url || "";
-  $("video-preview").src = data.video_url || "";
-  $("audio-preview").src = data.audio_url || "";
-  $("image-caption").textContent = "Image · " + (data._image_model || "Seedream");
-  $("video-caption").textContent = "Video · " + (data._video_model || "Seedance");
-  $("audio-caption").textContent = "Voiceover · " + (data._tts_resource_id || "TTS");
-
-  // Partial-success banner
-  const errors = data.errors || [];
-  const banner = $("partial-banner");
-  const missing = [];
-  if (!data.image_url) missing.push("image");
-  if (!data.video_url) missing.push("video");
-  if (!data.audio_url) missing.push("audio");
-  if (missing.length || errors.length) {
-    banner.classList.remove("hidden");
-    const causeList = errors.length
-      ? `<ul>${errors.map((e) => `<li>${escapeHtml(String(e))}</li>`).join("")}</ul>`
-      : "";
-    banner.innerHTML =
-      `<strong>Partial result.</strong> Missing: ${missing.join(", ") || "none"}.` +
-      causeList;
-  } else {
-    banner.classList.add("hidden");
-    banner.innerHTML = "";
-  }
-
-  // Pipeline timeline (intermediate states)
-  renderPipelineTrace(data.log || []);
-
-  // Eval block
-  setText("eval-status", data.eval_status);
-  setText("guardrail-status", data.guardrail_status);
-  $("guardrail-rev").textContent = data.guardrail_revision_count ?? 0;
-  const notesEl = $("eval-notes");
-  notesEl.innerHTML = "";
-  (data.eval_notes || []).forEach((n) => {
+  const shotsEl = $("sb-shots");
+  shotsEl.innerHTML = "";
+  for (const shot of sb.shots || []) {
     const li = document.createElement("li");
-    li.textContent = n;
-    notesEl.appendChild(li);
-  });
-}
-
-// Build the timeline from the per-node log dict that the graph emits
-function renderPipelineTrace(logEntries) {
-  const root = $("pipeline-trace");
-  root.innerHTML = "";
-
-  const items = [];
-  for (const entry of logEntries) {
-    const node = entry.node;
-    if (node === "rag") {
-      items.push({
-        kind: "ok",
-        label: "RAG",
-        text: `Loaded ${entry.rules_loaded ?? 0} brand rules`,
-      });
-    } else if (node === "planner") {
-      items.push({
-        kind: "ok",
-        label: `Planner${entry.revision ? ` · revision #${entry.revision}` : ""}`,
-        text: entry.hook ? `Hook: "${entry.hook}"` : "Drafted storyboard",
-      });
-    } else if (node === "guardrail") {
-      items.push({
-        kind: entry.status === "pass" ? "ok" : "fail",
-        label: `Guardrail · ${entry.status}`,
-        text:
-          (entry.violations && entry.violations.length)
-            ? `Violations: ${entry.violations.join("; ")}`
-            : "No violations",
-      });
-    } else if (node === "tool_use") {
-      for (const c of entry.calls || []) {
-        if (c.tool === "seedream") {
-          if (c.status === "failed") {
-            items.push({ kind: "fail", label: "Image (Seedream)", text: c.error });
-          } else {
-            items.push({
-              kind: "ok",
-              label: "Image (Seedream)",
-              text: `${c.size || ""} · ${(c.latency_ms || 0).toLocaleString()}ms${c.attempts > 1 ? ` · ${c.attempts} attempts` : ""}`,
-            });
-          }
-        } else if (c.tool === "seedance") {
-          if (c.status === "failed") {
-            items.push({ kind: "fail", label: "Video (Seedance)", text: c.error });
-          } else {
-            items.push({
-              kind: "ok",
-              label: "Video (Seedance)",
-              text: `${c.duration_s || "?"}s · ratio ${c.ratio || "?"} · ${(c.latency_ms || 0).toLocaleString()}ms${c.task_id ? ` · task ${c.task_id}` : ""}`,
-            });
-          }
-        } else if (c.tool === "tts") {
-          if (c.status === "failed") {
-            items.push({ kind: "fail", label: "Voiceover (TTS)", text: c.error });
-          } else {
-            items.push({
-              kind: "ok",
-              label: "Voiceover (TTS)",
-              text: `${c.bytes ? c.bytes.toLocaleString() + ' B ' : ''}${c.format || ""} @ ${c.sample_rate || "?"}Hz · ${(c.latency_ms || 0).toLocaleString()}ms`,
-            });
-          }
-        } else if (c.event === "moderation_hit") {
-          items.push({
-            kind: "warn",
-            label: `Moderation hit · ${c.stage}${c.attempt > 0 ? ` · attempt ${c.attempt}` : ""}`,
-            text: `${c.code}: ${c.message || ""}`,
-          });
-        } else if (c.event === "prompt_softened") {
-          items.push({
-            kind: "warn",
-            label: `Prompt softened · ${c.stage} (attempt ${c.attempt})`,
-            text: `→ ${c.new_prompt_head || ""}…`,
-          });
-        }
-      }
-    } else if (node === "eval") {
-      items.push({
-        kind: entry.status === "pass" ? "ok" : "fail",
-        label: `Eval · ${entry.status}`,
-        text: `CTR: ${(entry.ctr * 100).toFixed(2)}%`,
-      });
-    }
-  }
-
-  for (const it of items) {
-    const li = document.createElement("li");
-    li.className = `trace-item trace-${it.kind}`;
+    li.className = "sb-shot";
     li.innerHTML =
-      `<span class="trace-label">${escapeHtml(it.label)}</span>` +
-      `<span class="trace-text">${escapeHtml(it.text || "")}</span>`;
-    root.appendChild(li);
+      `<header><span class="sb-shot-id">#${shot.id}</span><span class="sb-shot-dur">${shot.duration_s ?? "?"}s</span></header>` +
+      `<p class="sb-shot-scene">${escapeHtml(shot.scene || "")}</p>` +
+      `<details><summary class="muted small">visual / motion prompt</summary>` +
+      `<p class="sb-shot-prompt"><strong>Visual:</strong> ${escapeHtml(shot.visual_prompt || "")}</p>` +
+      `<p class="sb-shot-prompt"><strong>Motion:</strong> ${escapeHtml(shot.motion_prompt || "")}</p>` +
+      `</details>`;
+    shotsEl.appendChild(li);
   }
-  if (!items.length) {
-    root.innerHTML = '<li class="trace-item trace-ok"><span class="trace-text">(no entries)</span></li>';
+
+  $("confirm-storyboard-btn").disabled = !enableConfirm;
+  const stage = $("sb-stage");
+  if (enableConfirm) {
+    stage.textContent = "draft — awaiting confirm";
+    stage.className = "api-status missing";
+  } else {
+    stage.textContent = "confirmed";
+    stage.className = "api-status ready";
   }
 }
 
-function setText(id, value) {
-  $(id).textContent = value && String(value).length ? value : "—";
-}
-
-function setLink(id, url) {
-  const el = $(id);
-  if (!url) {
-    el.textContent = "—";
-    el.removeAttribute("href");
-    return;
+// ---------- Confirm + image gen --------------------------------------------
+async function onConfirmStoryboard() {
+  if (!SESSION_ID) return;
+  $("confirm-storyboard-btn").disabled = true;
+  $("confirm-storyboard-btn").textContent = "Queueing…";
+  try {
+    const r = await fetch(`/api/sessions/${SESSION_ID}/storyboard/confirm`, { method: "POST" });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.detail || `HTTP ${r.status}`);
+    }
+    const view = await r.json();
+    const sb = view.session.storyboard;
+    showStoryboard(sb, false);
+    showImageGrid(sb.shots || [], view.shot_images);
+    startImagePolling();
+  } catch (err) {
+    alert(`Couldn't start image generation: ${err.message || err}`);
+    $("confirm-storyboard-btn").disabled = false;
+  } finally {
+    $("confirm-storyboard-btn").textContent = "Confirm and generate stills";
   }
-  el.textContent = url;
-  el.href = url;
 }
 
-function showError(msg) {
-  $("loading").classList.add("hidden");
-  $("result").classList.add("hidden");
-  $("error").classList.remove("hidden");
-  $("error-msg").textContent = msg;
-  $("run-btn").textContent = "Generate creative";
-  refreshConfigBadge();
+function showImageGrid(shots, statuses) {
+  $("images-panel").classList.remove("hidden");
+  const grid = $("image-grid");
+  grid.innerHTML = "";
+  const byShot = new Map(statuses.map((s) => [s.shot_id, s]));
+  for (const shot of shots) {
+    const st = byShot.get(shot.id) || { status: "queued" };
+    const card = document.createElement("li");
+    card.className = `image-card image-${st.status}`;
+    card.dataset.shotId = String(shot.id);
+    card.innerHTML = renderImageCardInner(shot, st);
+    grid.appendChild(card);
+    const cb = card.querySelector("input[type=checkbox]");
+    if (cb) cb.addEventListener("change", updateSelectionCount);
+  }
+  updateSelectionCount();
+  updateImagesProgress(statuses);
 }
 
-// ---------- Init ------------------------------------------------------------
-refreshConfigBadge();
+function renderImageCardInner(shot, st) {
+  const checked = st.status === "succeeded" ? "checked" : "";
+  const disabled = st.status === "succeeded" ? "" : "disabled";
+  const media =
+    st.status === "succeeded"
+      ? `<img src="${escapeHtml(st.url)}" alt="shot ${shot.id}" referrerpolicy="no-referrer">`
+      : st.status === "failed"
+      ? `<div class="image-failed">⚠ ${escapeHtml(st.error || "failed")}</div>`
+      : `<div class="image-spinner"><div class="spinner"></div><span>${st.status}…</span></div>`;
+  return (
+    `<label class="image-check"><input type="checkbox" ${checked} ${disabled}><span></span></label>` +
+    `<div class="image-media">${media}</div>` +
+    `<div class="image-meta">` +
+    `<span class="image-id">#${shot.id} · ${shot.duration_s ?? "?"}s</span>` +
+    `<span class="image-scene">${escapeHtml(shot.scene || "")}</span>` +
+    `</div>`
+  );
+}
+
+function updateSelectionCount() {
+  const checks = document.querySelectorAll("#image-grid input[type=checkbox]:checked");
+  $("selection-count").textContent = `${checks.length} selected`;
+  $("generate-video-btn").disabled = checks.length === 0;
+}
+
+function updateImagesProgress(statuses) {
+  const done = statuses.filter((s) => s.status === "succeeded" || s.status === "failed").length;
+  $("images-progress").textContent = `${done} / ${statuses.length}`;
+}
+
+function startImagePolling() {
+  if (imagePollHandle) clearInterval(imagePollHandle);
+  imagePollHandle = setInterval(async () => {
+    try {
+      const r = await fetch(`/api/sessions/${SESSION_ID}/images`);
+      const data = await r.json();
+      // Patch each card in place
+      for (const st of data.shots) {
+        const card = document.querySelector(`.image-card[data-shot-id="${st.shot_id}"]`);
+        if (!card) continue;
+        if (card.dataset.status === st.status) continue;
+        card.dataset.status = st.status;
+        card.className = `image-card image-${st.status}`;
+        const sb = await fetchCachedStoryboard();
+        const shot = (sb?.shots || []).find((s) => s.id === st.shot_id) || { id: st.shot_id };
+        card.innerHTML = renderImageCardInner(shot, st);
+        const cb = card.querySelector("input[type=checkbox]");
+        if (cb) cb.addEventListener("change", updateSelectionCount);
+      }
+      updateSelectionCount();
+      updateImagesProgress(data.shots);
+      if (data.all_done) {
+        clearInterval(imagePollHandle);
+        imagePollHandle = null;
+      }
+    } catch (e) {
+      console.warn("image poll error", e);
+    }
+  }, 3000);
+}
+
+let _storyboardCache = null;
+async function fetchCachedStoryboard() {
+  if (_storyboardCache) return _storyboardCache;
+  const r = await fetch(`/api/sessions/${SESSION_ID}`);
+  const view = await r.json();
+  _storyboardCache = view.session?.storyboard || null;
+  return _storyboardCache;
+}
+
+// ---------- Video gen + playback -------------------------------------------
+async function onGenerateVideo() {
+  const checks = Array.from(document.querySelectorAll("#image-grid input[type=checkbox]:checked"));
+  const selected = checks
+    .map((cb) => Number(cb.closest(".image-card").dataset.shotId))
+    .filter((n) => Number.isFinite(n));
+  if (!selected.length) return;
+
+  $("generate-video-btn").disabled = true;
+  $("generate-video-btn").textContent = "Submitting…";
+
+  try {
+    const r = await fetch(`/api/sessions/${SESSION_ID}/video`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ selected_shot_ids: selected }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.detail || `HTTP ${r.status}`);
+    }
+    const view = await r.json();
+    showVideoPanel(view.video || { status: "queued" });
+    startVideoPolling();
+  } catch (err) {
+    alert(`Couldn't start video gen: ${err.message || err}`);
+    $("generate-video-btn").disabled = false;
+  } finally {
+    $("generate-video-btn").textContent = "Generate video from selection";
+  }
+}
+
+function showVideoPanel(v) {
+  $("video-panel").classList.remove("hidden");
+  $("video-loading").classList.add("hidden");
+  $("video-ready").classList.add("hidden");
+  $("video-error").classList.add("hidden");
+
+  const stage = $("video-stage");
+  stage.textContent = v.status || "—";
+  stage.className =
+    "api-status " +
+    (v.status === "succeeded" ? "ready" : v.status === "failed" ? "missing" : "missing");
+
+  if (v.status === "succeeded" && v.local_url) {
+    $("video-ready").classList.remove("hidden");
+    $("video-preview").src = v.local_url;
+    $("video-local-url").href = v.local_url;
+    $("video-local-url").textContent = v.local_url;
+    const meta = v.metadata_json ? JSON.parse(v.metadata_json) : null;
+    if (meta) {
+      const pieces = [];
+      if (meta.bytes) pieces.push(`${(meta.bytes / 1024 / 1024).toFixed(2)} MB`);
+      if (meta.duration_s) pieces.push(`${meta.duration_s}s`);
+      if (meta.ratio) pieces.push(meta.ratio);
+      if (meta.model) pieces.push(meta.model);
+      $("video-stats").textContent = pieces.join(" · ");
+    }
+  } else if (v.status === "failed") {
+    $("video-error").classList.remove("hidden");
+    $("video-error-msg").textContent = v.error || "(no error message)";
+  } else {
+    $("video-loading").classList.remove("hidden");
+  }
+}
+
+function startVideoPolling() {
+  if (videoPollHandle) clearInterval(videoPollHandle);
+  videoPollHandle = setInterval(async () => {
+    try {
+      const r = await fetch(`/api/sessions/${SESSION_ID}/video`);
+      const v = await r.json();
+      showVideoPanel(v);
+      if (v.status === "succeeded" || v.status === "failed") {
+        clearInterval(videoPollHandle);
+        videoPollHandle = null;
+      }
+    } catch (e) {
+      console.warn("video poll error", e);
+    }
+  }, 5000);
+}

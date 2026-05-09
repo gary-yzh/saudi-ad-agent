@@ -207,17 +207,17 @@ def _extract_bad_request(exc: Any) -> tuple[str, str]:
 
 
 def _build_video_content(
-    *, prompt: str, image_url: Optional[str]
+    *, prompt: str, image_urls: list[str] | None
 ) -> list[dict[str, Any]]:
+    """Wrap text + 0..N reference images for the Seedance task body."""
     content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
-    if image_url:
-        # Use the still as a reference image. The user-provided sample uses
-        # role="reference_image"; the field is accepted by Seedance and gives
-        # the video a consistent visual anchor.
+    for url in image_urls or []:
+        if not url:
+            continue
         content.append(
             {
                 "type": "image_url",
-                "image_url": {"url": image_url},
+                "image_url": {"url": url},
                 "role": "reference_image",
             }
         )
@@ -263,8 +263,24 @@ def _http_get_json(url: str, *, headers: dict, timeout: float = 30) -> dict:
 
 
 def seedance_generate(
-    *, image_url: Optional[str], motion_prompt: str, duration_s: float = 5.0
+    *,
+    image_url: Optional[str] = None,
+    image_urls: Optional[list[str]] = None,
+    motion_prompt: str,
+    duration_s: float = 5.0,
 ) -> dict[str, Any]:
+    """Generate a video via Doubao Seedance.
+
+    Accepts either a single `image_url` (legacy single-shot path) or a list
+    of `image_urls` (the multi-shot flow — selected storyboard stills are
+    passed as reference images, in order).
+    """
+    refs: list[str] = []
+    if image_urls:
+        refs.extend([u for u in image_urls if u])
+    elif image_url:
+        refs.append(image_url)
+
     model = cfg_get("video_model", env_var="ARK_VIDEO_MODEL", default=VIDEO_MODEL_DEFAULT)
     ratio = cfg_get("video_ratio", env_var="ARK_VIDEO_RATIO", default="9:16")
     duration = int(cfg_get("video_duration", default=int(round(duration_s))))
@@ -273,7 +289,7 @@ def seedance_generate(
 
     body: dict[str, Any] = {
         "model": model,
-        "content": _build_video_content(prompt=motion_prompt, image_url=image_url),
+        "content": _build_video_content(prompt=motion_prompt, image_urls=refs),
         "ratio": ratio,
         "duration": duration,
         "generate_audio": generate_audio,

@@ -15,30 +15,26 @@
       <div class="logo"></div>
       <div>
         <h1>Saudi Ad Agent</h1>
-        <p class="subtitle">Brief → Storyboard → Real assets → CTR estimate</p>
+        <p class="subtitle">Brief → Storyboard → Stills → Video</p>
       </div>
     </div>
     <nav class="nav">
       <a href="/" class="active">Run</a>
       <a href="/settings">Settings</a>
     </nav>
-    <div id="config-badge" class="mode-badge unconfigured" title="Loading config status...">…</div>
+    <div id="config-badge" class="mode-badge unconfigured" title="Loading…">…</div>
+    <button id="new-session-btn" class="secondary new-session-btn" type="button" title="Start a fresh session">＋ New</button>
   </header>
 
-  <main class="grid">
+  <main class="run-main">
 
-    <!-- LEFT: brief input -->
-    <section class="card form-card">
-      <h2>Customer Brief</h2>
-      <form id="brief-form" autocomplete="off">
-        <label>
-          <span>Brief</span>
-          <textarea id="brief" rows="9" required minlength="10"
-            placeholder="e.g. Promote our premium Ajwa dates collection for the upcoming Ramadan campaign. Target audience: Saudi families, ages 25-45..."></textarea>
-        </label>
-        <div class="row">
+    <!-- ============ Chat panel (always visible) ============ -->
+    <section class="card chat-panel">
+      <header class="panel-head">
+        <h2>1 · Brief</h2>
+        <div class="locale-picker">
           <label>
-            <span>Locale</span>
+            <span class="muted small">Voiceover language</span>
             <select id="locale">
               <option value="ar-SA" selected>ar-SA — Arabic (Saudi)</option>
               <option value="ar-AE">ar-AE — Arabic (UAE)</option>
@@ -47,117 +43,103 @@
               <option value="zh-CN">zh-CN — Chinese</option>
             </select>
           </label>
-          <label>
-            <span>Audience</span>
-            <input id="audience" type="text" value="Saudi adults 25-45, parents, urban">
-          </label>
         </div>
+      </header>
 
-        <button type="submit" id="run-btn" disabled>Generate creative</button>
-        <p id="run-gate" class="api-hint warn hidden">Open <a href="/settings">Settings</a> and configure the three API keys before running.</p>
+      <ol id="chat-log" class="chat-log">
+        <!-- chat bubbles get appended here -->
+      </ol>
+
+      <div id="chat-empty" class="chat-empty">
+        <p class="placeholder-title">Start with a quick brief.</p>
+        <p class="placeholder-sub">
+          The agent will ask follow-up questions if it needs more — product, audience,
+          tone, length. When ready, it'll propose a multi-shot storyboard.
+        </p>
+        <p class="hint">
+          Example: <button type="button" id="load-sample" class="link">"Promote our premium Ajwa dates for Ramadan…"</button>
+        </p>
+      </div>
+
+      <form id="chat-form" class="chat-form">
+        <textarea id="chat-input" rows="2" placeholder="Type your brief, or answer a question…" required></textarea>
+        <button type="submit" id="chat-send" disabled>Send</button>
       </form>
-      <p class="hint">
-        No idea? <button type="button" id="load-sample" class="link">Load Ajwa dates sample brief</button>
+    </section>
+
+    <!-- ============ Storyboard preview (revealed on draft) ============ -->
+    <section class="card storyboard-panel hidden" id="storyboard-panel">
+      <header class="panel-head">
+        <h2>2 · Storyboard</h2>
+        <span id="sb-stage" class="api-status missing">draft</span>
+      </header>
+
+      <div class="sb-meta">
+        <div><span class="sb-label">Hook</span><span id="sb-hook">—</span></div>
+        <div><span class="sb-label">CTA</span><span id="sb-cta">—</span></div>
+        <div><span class="sb-label">Voiceover</span><span id="sb-vo">—</span></div>
+      </div>
+
+      <ol id="sb-shots" class="sb-shots"><!-- shot cards --></ol>
+
+      <div class="panel-actions">
+        <button type="button" id="confirm-storyboard-btn" class="primary">Confirm and generate stills</button>
+        <span class="muted small">— or keep chatting above to refine.</span>
+      </div>
+    </section>
+
+    <!-- ============ Image grid (revealed on confirm) ============ -->
+    <section class="card images-panel hidden" id="images-panel">
+      <header class="panel-head">
+        <h2>3 · Stills (Doubao Seedream)</h2>
+        <span id="images-progress" class="muted small">0 / 0</span>
+      </header>
+
+      <p class="muted small section-desc">
+        Pick the shots you want in the final video, then hit Generate Video.
+        Each still is independent — if one moderation-fails you can still proceed
+        with the rest.
       </p>
+
+      <ol id="image-grid" class="image-grid"><!-- shot cards with checkboxes --></ol>
+
+      <div class="panel-actions">
+        <button type="button" id="generate-video-btn" class="primary" disabled>Generate video from selection</button>
+        <span id="selection-count" class="muted small">0 selected</span>
+      </div>
     </section>
 
-    <!-- RIGHT: result + pipeline timeline -->
-    <section class="card result-card">
-      <div id="placeholder" class="placeholder">
-        <div>
-          <p class="placeholder-title">No run yet</p>
-          <p class="placeholder-sub">Submit a brief once your settings are configured.</p>
-        </div>
-      </div>
+    <!-- ============ Video player (revealed on success) ============ -->
+    <section class="card video-panel hidden" id="video-panel">
+      <header class="panel-head">
+        <h2>4 · Final video</h2>
+        <span id="video-stage" class="api-status missing">pending</span>
+      </header>
 
-      <div id="loading" class="loading hidden">
+      <div id="video-loading" class="video-loading hidden">
         <div class="spinner"></div>
-        <p class="loading-title">Running pipeline…</p>
-        <p id="loading-sub" class="loading-sub"></p>
-        <ul class="steps" id="steps">
-          <li data-step="rag">Loading brand manual</li>
-          <li data-step="planner">Drafting storyboard (LLM)</li>
-          <li data-step="guardrail">Brand-safety check</li>
-          <li data-step="tool_use">Seedream → Seedance → TTS</li>
-          <li data-step="eval">CTR estimation</li>
-        </ul>
+        <p class="loading-title">Seedance is rendering…</p>
+        <p class="loading-sub">Typically 3–5 minutes; up to 30 on busy days. Don't close the tab.</p>
       </div>
 
-      <div id="result" class="result hidden">
-        <div class="result-header">
-          <div>
-            <span class="status-badge" id="status-badge">pass</span>
-            <span class="run-id" id="run-id"></span>
-          </div>
-          <div class="ctr-block">
-            <div class="ctr-label">CTR estimate</div>
-            <div class="ctr-value" id="ctr-value">—</div>
-          </div>
-        </div>
-
-        <div id="partial-banner" class="partial-banner hidden"></div>
-
-        <div class="section">
-          <h3>Storyboard</h3>
-          <dl class="storyboard">
-            <dt>Hook</dt>            <dd id="sb-hook">—</dd>
-            <dt>Body</dt>            <dd id="sb-body">—</dd>
-            <dt>CTA</dt>             <dd id="sb-cta">—</dd>
-            <dt>Visual prompt</dt>   <dd id="sb-visual">—</dd>
-            <dt>Motion prompt</dt>   <dd id="sb-motion">—</dd>
-            <dt>Voiceover</dt>       <dd id="sb-vo">—</dd>
-            <dt>Voice ID</dt>        <dd id="sb-voice" class="mono">—</dd>
-          </dl>
-        </div>
-
-        <div class="section">
-          <h3>Generated assets</h3>
-          <div class="asset-previews">
-            <figure>
-              <img id="image-preview" alt="generated still" referrerpolicy="no-referrer">
-              <figcaption id="image-caption">Image · Doubao Seedream</figcaption>
-            </figure>
-            <figure>
-              <video id="video-preview" controls preload="metadata" referrerpolicy="no-referrer"></video>
-              <figcaption id="video-caption">Video · Doubao Seedance</figcaption>
-            </figure>
-            <figure class="audio-fig">
-              <audio id="audio-preview" controls></audio>
-              <figcaption id="audio-caption">Voiceover · Doubao TTS</figcaption>
-            </figure>
-          </div>
-          <div class="assets">
-            <div class="asset"><span class="asset-label">Image URL</span><a id="image-url" class="asset-url" target="_blank" rel="noopener">—</a></div>
-            <div class="asset"><span class="asset-label">Video URL</span><a id="video-url" class="asset-url" target="_blank" rel="noopener">—</a></div>
-            <div class="asset"><span class="asset-label">Audio URL</span><a id="audio-url" class="asset-url" target="_blank" rel="noopener">—</a></div>
-          </div>
-        </div>
-
-        <!-- Pipeline timeline — every node + every moderation event -->
-        <div class="section">
-          <h3>Pipeline trace <span class="muted small">(intermediate states)</span></h3>
-          <ol id="pipeline-trace" class="pipeline-trace"></ol>
-        </div>
-
-        <div class="section">
-          <h3>Eval</h3>
-          <div class="eval-meta">
-            <span>Status: <strong id="eval-status">—</strong></span>
-            <span>Guardrail: <strong id="guardrail-status">—</strong> (revisions: <span id="guardrail-rev">0</span>)</span>
-          </div>
-          <ul id="eval-notes" class="notes"></ul>
+      <div id="video-ready" class="video-ready hidden">
+        <video id="video-preview" controls preload="metadata"></video>
+        <div class="video-meta">
+          <a id="video-local-url" target="_blank" rel="noopener" class="asset-url">—</a>
+          <span class="muted small" id="video-stats">—</span>
         </div>
       </div>
 
-      <div id="error" class="error hidden">
-        <h3>Run failed</h3>
-        <pre id="error-msg"></pre>
+      <div id="video-error" class="video-error hidden">
+        <strong>Generation failed.</strong>
+        <pre id="video-error-msg"></pre>
       </div>
     </section>
+
   </main>
 
   <footer>
-    LangGraph · FastAPI · Live mode — settings persist in <code>data/app.db</code>.
+    LangGraph · FastAPI · Live mode · sessions persisted in <code>data/app.db</code>
   </footer>
 
   <script src="/static/app.js"></script>
