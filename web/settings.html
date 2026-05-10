@@ -29,6 +29,13 @@
       <a href="/">Console</a>
       <a href="/settings" class="active">Settings</a>
     </nav>
+    <!-- Same session-level action as Console — available from any view of
+         the app, not gated to one page. Apple parallel: File → New Window
+         is reachable from every view, not just one. -->
+    <button id="new-session-btn" class="topbar-action" type="button"
+            title="Open a fresh session in a new tab — your current work stays open here.">
+      ＋ New session
+    </button>
   </header>
 
   <main class="settings-main">
@@ -221,8 +228,8 @@
       </section>
 
       <div class="settings-actions">
-        <button type="submit" id="save-btn">Save settings</button>
-        <button type="button" id="clear-btn" class="secondary">Clear all</button>
+        <button type="submit" id="save-btn">Save</button>
+        <button type="button" id="clear-btn" class="secondary">Clear</button>
         <span id="save-toast" class="save-toast hidden"></span>
       </div>
     </form>

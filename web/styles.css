@@ -1004,12 +1004,21 @@ code {
 .settings-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: nowrap;
   padding: 18px 0 8px;
   position: sticky;
   bottom: 0;
   background: linear-gradient(to top, var(--bg) 70%, transparent);
   z-index: 5;
+}
+/* Save and Clear share the same min-width so they read as a balanced
+   pair (Apple dialog pattern: Cancel/Save are equal-width). The save
+   button stays primary-emerald; Clear stays secondary white-with-border.
+   Toast slides in to the right when present. */
+.settings-actions #save-btn,
+.settings-actions #clear-btn {
+  min-width: 92px;
 }
 
 #save-btn {

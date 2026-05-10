@@ -78,6 +78,15 @@ function showToast(text, kind = "ok") {
 
 // ---------- Init ------------------------------------------------------------
 (async function init() {
+  // + New session — same affordance as Console. Opens a clean session in a
+  // new tab; the current Settings tab stays untouched.
+  const newSessionBtn = $("new-session-btn");
+  if (newSessionBtn) {
+    newSessionBtn.addEventListener("click", () => {
+      window.open("/", "_blank", "noopener");
+    });
+  }
+
   // Wire reveal toggles for password fields
   document.querySelectorAll("[data-toggle]").forEach((btn) => {
     btn.addEventListener("click", () => {
