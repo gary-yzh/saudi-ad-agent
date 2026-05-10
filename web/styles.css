@@ -1118,16 +1118,15 @@ button.secondary:hover {
    whitespace, refined type. */
 .chat-empty {
   text-align: center;
-  /* The intro paragraph moved out (it now lives in the topbar subtitle
-     and the stepper intro, where each one belongs). What's left is a
-     short, focused hero — title + one usage hint + sample button —
-     so the padding is more compact than the old multi-paragraph hero. */
-  padding: 36px 24px 32px;
+  /* Apple-style: short hero. Title (noun phrase, no period) + one
+     short hint + one primary action. Padding sized for that — not
+     for the multi-paragraph hero this used to be. */
+  padding: 40px 24px 32px;
   margin: 0 auto 8px;
-  max-width: 480px;
+  max-width: 460px;
 }
 .chat-empty-title {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -1136,7 +1135,7 @@ button.secondary:hover {
 .chat-empty-sub {
   margin: 0 auto 22px;
   font-size: 13.5px;
-  line-height: 1.6;
+  line-height: 1.55;
   color: var(--muted);
 }
 .chat-empty-sample-btn {
@@ -1605,17 +1604,9 @@ button.secondary:hover {
   padding: 18px 0;
   box-shadow: var(--shadow);
 }
-/* Short intro at the top of the stepper — describes the 4-step flow.
-   Sits right above the steps so the explanation hugs what it explains.
-   Not a heavy header — small, muted, hairline divider below. */
-.stepper-intro {
-  margin: 0 18px 14px;
-  padding: 0 0 14px;
-  border-bottom: 1px solid var(--border-soft);
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--muted);
-}
+/* (No stepper-intro paragraph. Apple-style: numbered steps are
+   self-describing — adding an "in four steps" preamble above 1/2/3/4
+   is redundant chrome.) */
 .stepper ol {
   list-style: none;
   margin: 0;
