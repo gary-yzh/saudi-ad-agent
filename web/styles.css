@@ -1452,7 +1452,12 @@ button.secondary:active {
   font-weight: 600;
   color: var(--text);
 }
-.image-scene { color: var(--muted); }
+.image-scene {
+  color: var(--muted);
+  cursor: help;
+  /* On hover, the title attribute shows the actual visual_prompt sent to
+     Seedream — useful for diagnosing scene-vs-prompt drift. */
+}
 
 /* ---------- Video panel ---------- */
 .video-panel { padding: 24px 28px; }

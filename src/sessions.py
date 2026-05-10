@@ -122,8 +122,8 @@ OR:
     "shots": [
       {
         "id": 1,
-        "scene": "<one-line plain-English description>",
-        "visual_prompt": "<image-gen prompt: scene, lighting, framing, palette, 9:16 vertical>",
+        "scene": "<one-line plain-English description, including subject specifics>",
+        "visual_prompt": "<image-gen prompt. MUST repeat the scene's subject specifics verbatim (gender, attire, ethnicity, age) before adding lighting/framing/palette/9:16. Diffusion models default to category stereotypes (e.g. women for perfume/beauty, men for tools/sport) when subject is vague — explicit subject markers are MANDATORY.>",
         "motion_prompt": "<video-gen prompt: camera move + animation, 1 sentence>",
         "duration_s": <float, 2.0-5.0>
       },
@@ -138,6 +138,13 @@ Hard rules:
   Chinese for zh-*).
 - No alcohol, no pork, no gambling iconography.
 - For Ramadan briefs, evoke family / generosity, not discount urgency.
+- Subject consistency: each shot's `visual_prompt` MUST repeat the
+  subject specifics from its `scene` (gender, attire, ethnicity, age).
+  If the scene says "man in thobe", the visual_prompt MUST also say
+  "man in thobe" — never generalize to "person", "model" or
+  "spokesperson". Brand modesty defaults like "hijab for spokesperson
+  roles" apply only when the scene specifies a woman; never let a
+  brand-manual default flip a scene's explicit gender.
 - Output ONLY the JSON. No markdown fences, no commentary.
 
 If the user explicitly asks for revisions to a previous storyboard you

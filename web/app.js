@@ -692,12 +692,18 @@ function renderImageCardInner(shot, st) {
     ? `<div class="shot-retry"><button type="button" class="shot-retry-btn" data-shot-id="${shot.id}">↻ Retry</button></div>`
     : `<div class="shot-controls-placeholder muted small">Generating…</div>`;
 
+  // Show the SCENE one-liner (human-readable) but expose the actual
+  // VISUAL_PROMPT (what Seedream received) on hover. Lets the user spot
+  // when the planner's prompt drifted from the scene description — e.g.
+  // scene says "man in thobe" but the prompt got generalized to "person"
+  // or got overridden by brand-manual modesty defaults.
+  const promptForHover = shot.visual_prompt || shot.scene || "";
   return (
     `<label class="image-check"><input type="checkbox" ${checked} ${disabled}><span></span></label>` +
     `<div class="image-media${failureClass}">${media}</div>` +
     `<div class="image-meta">` +
     `<span class="image-id">#${shot.id} · ${shot.duration_s ?? "?"}s</span>` +
-    `<span class="image-scene">${escapeHtml(shot.scene || "")}</span>` +
+    `<span class="image-scene" title="Sent to Seedream:\n\n${escapeHtml(promptForHover)}">${escapeHtml(shot.scene || "")}</span>` +
     `</div>` +
     controls
   );
