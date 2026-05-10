@@ -11,11 +11,18 @@
 // same flow but '+ New session' opens a clean tab without disturbing the
 // original.
 
+// Sample brief deliberately picks a low-moderation-risk product (premium
+// coffee, packaging-focused, no people in frame) so first-time users can
+// run the whole pipeline end-to-end without hitting Doubao's culturally-
+// sensitive image / video moderation. Earlier sample referenced Ramadan,
+// iftar, Saudi families etc. — combined those triggers got both Stills
+// and Video gen rejected as "sensitive content" repeatedly.
 const SAMPLE_BRIEF =
-  "Promote our premium Ajwa dates collection for the upcoming Ramadan campaign. " +
-  "Target audience: Saudi families, ages 25-45, gifting for iftar gatherings. " +
-  "Single 9:16 short-form video, ≤15 seconds, bilingual (Arabic VO + English overlay). " +
-  "Objective: drive product page visits.";
+  "Promote our 'Arabia Roast' premium single-origin coffee bean collection — " +
+  "medium roast, hand-picked, foil-sealed bag — for working professionals across " +
+  "the GCC, ages 25-45. Single 9:16 short-form video, ≤15 seconds, English " +
+  "voiceover. Focus on the product packaging and brewing close-ups; no people in " +
+  "frame, no specific cultural settings. Objective: drive product page visits.";
 
 const STORE_KEY = "saa.session_id";
 const $ = (id) => document.getElementById(id);

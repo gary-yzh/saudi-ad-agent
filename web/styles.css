@@ -1865,16 +1865,16 @@ button.secondary:active {
 }
 .stepper .step-current .step-title { color: var(--emerald); }
 
+/* Done state: keep the number visible — green background is enough to
+   signal "completed". Earlier design tried to overlay a ✓ checkmark via
+   ::before but the parent's `color: transparent` (used to hide the
+   number) also faded the checkmark itself, so steps 1 and 2 appeared
+   as empty green circles with nothing inside. */
 .stepper .step-done .step-marker {
   background: var(--success);
   color: white;
   border-color: var(--success);
 }
-.stepper .step-done .step-marker::before {
-  content: '✓';
-  font-size: 14px;
-}
-.stepper .step-done .step-marker { color: transparent; }
 .stepper .step-done .step-title { color: var(--text); }
 .stepper .step-done:not(:last-child)::after { background: var(--success); }
 
