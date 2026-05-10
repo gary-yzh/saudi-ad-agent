@@ -256,7 +256,13 @@ button[type="submit"] {
 
 button[type="submit"]:hover { background: var(--emerald-dark); }
 button[type="submit"]:active { transform: translateY(1px); }
-button[type="submit"]:disabled { background: var(--muted); cursor: wait; }
+/* Default disabled cursor for ALL submit buttons. Was `cursor: wait`
+   (hourglass) — but that's the wrong semantic for "disabled because
+   the input is empty". `not-allowed` is correct: the button can't be
+   clicked because there's nothing to submit yet. Buttons that genuinely
+   represent a loading state (e.g. #save-btn during the save round-trip)
+   keep their own override with `cursor: wait`. */
+button[type="submit"]:disabled { background: var(--muted); cursor: not-allowed; }
 
 .hint {
   margin: 14px 0 0;

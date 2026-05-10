@@ -201,23 +201,31 @@
 
         <details class="settings-advanced">
           <summary>
-            <span class="settings-advanced-label">Advanced delivery</span>
-            <span class="settings-advanced-hint">Speech rate, loudness, emotion. Defaults work for most cases.</span>
+            <span class="settings-advanced-label">Advanced settings</span>
+            <span class="settings-advanced-hint">Speech rate, loudness, emotion. Defaults work for most cases — change only if you want a specific tone.</span>
           </summary>
           <div class="api-row">
             <label class="api-label">
-              <span>Speech rate <em class="muted">(-50 → 100)</em></span>
-              <input id="tts_speech_rate" name="tts_speech_rate" type="number" min="-50" max="100" step="1" placeholder="0">
+              <span>Speech rate <em class="muted">(-50 → 100, default -10)</em></span>
+              <input id="tts_speech_rate" name="tts_speech_rate" type="number" min="-50" max="100" step="1" placeholder="-10">
             </label>
             <label class="api-label">
-              <span>Loudness rate <em class="muted">(-50 → 100)</em></span>
-              <input id="tts_loudness_rate" name="tts_loudness_rate" type="number" min="-50" max="100" step="1" placeholder="0">
+              <span>Loudness rate <em class="muted">(-50 → 100, default 30)</em></span>
+              <input id="tts_loudness_rate" name="tts_loudness_rate" type="number" min="-50" max="100" step="1" placeholder="30">
             </label>
           </div>
           <div class="api-row">
             <label class="api-label">
-              <span>Emotion</span>
-              <input id="tts_emotion" name="tts_emotion" type="text" placeholder="e.g. happy, angry, calm">
+              <span>Emotion <em class="muted">(default happy — recommended for ads)</em></span>
+              <select id="tts_emotion" name="tts_emotion">
+                <option value="happy">happy (recommended for ads)</option>
+                <option value="calm">calm</option>
+                <option value="neutral">neutral</option>
+                <option value="warm">warm</option>
+                <option value="surprised">surprised</option>
+                <option value="sad">sad</option>
+                <option value="angry">angry</option>
+              </select>
             </label>
             <label class="api-label">
               <span>Emotion scale <em class="muted">(1 → 5)</em></span>

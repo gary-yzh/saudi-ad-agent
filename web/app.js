@@ -11,37 +11,57 @@
 // same flow but '+ New session' opens a clean tab without disturbing the
 // original.
 
-// Sample brief — formatted as a real industry creative brief (campaign
-// header + 6 numbered sections). Doubles as an implicit template: a user
-// replacing it with their own brief sees the standard ad-agency structure
-// (Objective → Audience → Key Message → Deliverable → Visual → Mandatories),
-// which in turn gives the planner LLM richer context to draft from.
+// Sample brief — full industry creative brief in the format a real
+// agency planner would send. 9 numbered sections cover objectives,
+// multi-tier audience, single-minded key message, multi-format
+// deliverables, visual direction, tone, mandatories, platforms,
+// production placeholders. Doubles as an implicit template — users
+// replacing it with their own brief get the standard ad-agency
+// structure for free, and the planner LLM gets richer context.
 //
-// Bateel is a real Saudi premium-dates retailer. Brief is product-led:
-// glossy whole-date close-ups + gold-foiled gift-box reveals, with NO
-// people / cultural settings / religious holidays / flags. That keeps
-// the demo fast (Seedream usually passes first attempt, Seedance almost
-// always passes) while the brand name still carries the Saudi e-commerce
-// flavour the take-home asks for.
-const SAMPLE_BRIEF = `CAMPAIGN: Bateel Premium Dates Q1 Launch
+// Bateel is a real KSA premium-dates retailer. Visual direction stays
+// "hand-only, no faces" + "subtle heritage cue, not costume" so the
+// production stays product-led and Doubao moderation passes fast.
+const SAMPLE_BRIEF = `CAMPAIGN: Bateel Premium Dates – Q3 Gifting Launch
 
 1. OBJECTIVE
-Drive product-page visits and gift-box pre-orders for Bateel's premium dates collection.
+Primary: Pre-orders of Signature Gift Collection (target ROAS ≥ X)
+Secondary: PDP CTR ≥ 2.5%, VTR ≥ 25%
 
 2. AUDIENCE
-Discerning gift-givers and connoisseurs worldwide, ages 28–55, who appreciate luxury food gifts and fine craftsmanship.
+Tier 1 GCC: HNW gifters 30–55, Eid/weddings/corporate, AOV $150+
+Tier 2 Asia (KR/JP/SG): Gourmet connoisseurs 28–45
+Tier 3 US launch: Premium food & corporate gifters 35–55
 
-3. KEY MESSAGE
-Hand-picked, single-estate dates — the world's finest, in a gold-foiled gift box.
+3. KEY MESSAGE (pick ONE)
+"Each date, hand-picked like a jewel." — heritage + craftsmanship.
 
 4. DELIVERABLE
-9:16 vertical short-form video, ≤30 seconds. English voiceover with burn-in English captions. Warm cream-and-gold palette.
+Hero 9:16 ≤25s, EN VO + open captions
+Cut-downs: 15s / 6s bumper / 3 static KVs / Stories pack
+Languages: EN master, AR + KO localized
 
 5. VISUAL DIRECTION
-Product-only studio shots: glossy whole dates close-ups, the gold-foiled gift box opening to reveal dates inside, slow dolly across the box, soft natural daylight, neutral cream and gold palette. Focus on product texture, sheen, and packaging quality. No people in frame. No specific cultural settings, no flags, no holidays.
+One "ritual of gifting" sequence: hand selecting date in grove →
+   boxing → box opening at a guest's table (hand-only, no faces).
+Palette: cream, gold, deep date-brown.
+Subtle heritage cue (e.g., dallah in bokeh) — feature, not costume.
 
-6. MANDATORIES
-Brand logo on the sign-off frame. CTA: "Shop now". Target product-page CTR ≥ 2.5%.`;
+6. TONE
+Refined, understated, sensory. No superlatives, no urgency.
+
+7. MANDATORIES
+- CTA: "Reserve the collection"
+- Avoid "world's finest"; use "renowned expert in premium dates"
+- Music: oud-led ambient (no stock orchestral)
+- Captions: ≥40% screen-safe, brand typography
+- Allergen + origin disclosure in caption
+
+8. PLATFORMS
+TikTok, IG Reels, YouTube Shorts, Snapchat (KSA priority), Meta.
+
+9. PRODUCTION
+Timeline / Usage rights / Budget band: [TBD]`;
 
 const STORE_KEY = "saa.session_id";
 const $ = (id) => document.getElementById(id);

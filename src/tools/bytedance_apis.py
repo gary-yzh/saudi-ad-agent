@@ -376,14 +376,21 @@ def _audio_params() -> dict[str, Any]:
     params: dict[str, Any] = {
         "format": cfg_get("tts_format", env_var="TTS_FORMAT", default=TTS_FORMAT_DEFAULT),
         "sample_rate": int(cfg_get("tts_sample_rate", default=TTS_SAMPLE_RATE_DEFAULT)),
-        "speech_rate": int(cfg_get("tts_speech_rate", default=0)),
-        # Default loudness bumped from 0 → 30 (out of [-50, 100]) so the
-        # voiceover is audible alongside the video without users having to
-        # manually crank their system volume. Users can still override in
-        # Settings → Voiceover → Advanced delivery → Loudness rate.
+        # Speech rate: -10 (range [-50, 100]) — Doubao's native rate (0)
+        # reads ad voiceovers a touch too quickly; -10 gives a more
+        # deliberate, "professional voice-actor" pace without sounding
+        # robotic. User can override in Settings → Advanced settings.
+        "speech_rate": int(cfg_get("tts_speech_rate", default=-10)),
+        # Loudness +30 (range [-50, 100]) so the voiceover is audible
+        # alongside the video without manual volume cranking. Combined
+        # with the client-side 1.6× Web Audio gain, total ~2.4× boost.
         "loudness_rate": int(cfg_get("tts_loudness_rate", default=30)),
     }
-    emotion = cfg_get("tts_emotion", default="")
+    # Emotion default "happy" — most ad voiceovers want an upbeat tone.
+    # User can pick a different emotion in Settings (calm / neutral /
+    # sad / angry / surprised) or revert to neutral if their brand
+    # voice prefers understated. Empty string still bypasses the param.
+    emotion = cfg_get("tts_emotion", default="happy")
     if emotion:
         params["emotion"] = emotion
     emotion_scale = cfg_get("tts_emotion_scale", default=None)
