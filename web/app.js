@@ -24,6 +24,12 @@ let SESSION_ID = null;
 let imagePollHandle = null;
 let videoPollHandle = null;
 
+// Stepper state machine — must be declared BEFORE the init() IIFE that
+// calls setStepperFromState (the function is hoisted, but a `const` it
+// references would otherwise be in the TDZ at IIFE-run time and throw,
+// killing every listener binding below it).
+const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
+
 // ---------- Boot ------------------------------------------------------------
 //
 // Init in two phases. Phase 1 is fully synchronous so a network hiccup or a
@@ -155,7 +161,7 @@ async function refreshConfigBadge() {
 }
 
 // ---------- Stepper (left rail) --------------------------------------------
-const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
+// STEP_ORDER is declared at the top of the file because init() needs it.
 
 function setStepperFromState(state) {
   // Map session.state → which step is currently active
