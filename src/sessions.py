@@ -507,78 +507,137 @@ def _gen_one_shot(
     is_sign_off = _is_sign_off_shot(session_id, shot_id)
     logo = storage.get_brand_logo(session_id) if is_sign_off else None
     if prompt_override is not None:
-        prompt = prompt_override
+        current_prompt = prompt_override
     else:
         base_prompt = shot.get("visual_prompt", "") or shot.get("scene", "")
-        prompt = base_prompt + _logo_hint_block(session_id, shot_id)
+        current_prompt = base_prompt + _logo_hint_block(session_id, shot_id)
+
+    # Auto-soften retry loop. Doubao moderation is deterministic, so blind
+    # retry won't help — but a softened prompt usually does. We try the
+    # original first (so safe prompts keep their full creative specificity),
+    # then up to MAX_AUTO_RETRIES progressively softer rewrites. Only
+    # surface a failure to the user if every attempt is rejected — at that
+    # point manual rephrasing is the right next step anyway, and they
+    # see a friendly message instead of a raw Doubao error code.
+    from .nodes.tool_use import _soften_prompt  # local import — avoids cycles
+
+    MAX_AUTO_RETRIES = 2
+    result: dict | None = None
+    softening_history: list[dict[str, Any]] = []
+    last_exc: Exception | None = None
+    last_was_moderation = False
+
+    for attempt in range(MAX_AUTO_RETRIES + 1):
+        try:
+            result = _run_with_config(
+                apis.seedream_generate, prompt=current_prompt, aspect="9:16"
+            )
+            break  # success — fall through to download/persist
+        except apis.ContentModerationError as e:
+            last_exc = e
+            last_was_moderation = True
+            if attempt >= MAX_AUTO_RETRIES:
+                break
+            try:
+                softened = _soften_prompt(
+                    current_prompt,
+                    stage="image",
+                    reason=e.message,
+                    attempt=attempt + 1,
+                )
+            except Exception as soft_err:
+                # Softening LLM call itself failed — give up gracefully.
+                last_exc = soft_err
+                break
+            softening_history.append({
+                "attempt": attempt + 1,
+                "moderation_code": e.code,
+                "moderation_msg": (e.message or "")[:200],
+                "softened_head": softened[:200],
+            })
+            current_prompt = softened
+        except Exception as e:
+            last_exc = e
+            last_was_moderation = False
+            break
+
+    if result is None:
+        # All attempts failed — store as failed with a user-facing
+        # message that says what to do next, not the raw API error.
+        if last_was_moderation:
+            attempts_made = len(softening_history) + 1  # original + each retry
+            error_str = (
+                f"Doubao kept flagging this shot as sensitive after {attempts_made} "
+                f"automatic rewrites. Use the Apply box below to rephrase manually "
+                f"(e.g. swap specific cultural markers for neutral ones, drop people, "
+                f"or describe just the product)."
+            )
+            failure_md: dict[str, Any] = {
+                "category": "moderation",
+                "code": getattr(last_exc, "code", "unknown"),
+                "message": getattr(last_exc, "message", str(last_exc)),
+                "current_prompt": current_prompt,
+                "auto_soften_attempts": softening_history,
+                # Continuity with manual retry — its _soften_prompt picks up
+                # at this level + 1, so we keep getting more aggressive.
+                "retry_softening_level": len(softening_history),
+            }
+        else:
+            error_str = str(last_exc) if last_exc else "unknown error"
+            failure_md = {"current_prompt": current_prompt}
+            if softening_history:
+                failure_md["auto_soften_attempts"] = softening_history
+        if extra_metadata:
+            failure_md.update(extra_metadata)
+        storage.update_shot_image(
+            session_id,
+            shot_id,
+            status="failed",
+            error=error_str,
+            metadata=failure_md,
+        )
+        return
+
+    # Success path — `result` is set, `current_prompt` is whatever ended up
+    # working (original or one of the softened rewrites).
+    original_url = result["url"]
+    metadata: dict[str, Any] = dict(result)
+    metadata["original_url"] = original_url
+    metadata["prompt_used"] = current_prompt[:1500]
+    metadata["current_prompt"] = current_prompt
+    if softening_history:
+        metadata["auto_soften_attempts"] = softening_history
+        metadata["retry_softening_level"] = len(softening_history)
+    if extra_metadata:
+        metadata.update(extra_metadata)
 
     try:
-        result = _run_with_config(
-            apis.seedream_generate, prompt=prompt, aspect="9:16"
+        with httpx.Client(timeout=60, follow_redirects=True) as client:
+            img_bytes = client.get(original_url).content
+        display_url, extra = _save_still_locally(
+            img_bytes,
+            session_id=session_id,
+            shot_id=shot_id,
+            logo=logo,
         )
-        original_url = result["url"]
-        metadata: dict[str, Any] = dict(result)
-        metadata["original_url"] = original_url
-        metadata["prompt_used"] = prompt[:1500]
-        # Stash the full prompt so the next refine/retry can keep building on it.
-        metadata["current_prompt"] = prompt
-        if extra_metadata:
-            metadata.update(extra_metadata)
-
-        try:
-            with httpx.Client(timeout=60, follow_redirects=True) as client:
-                img_bytes = client.get(original_url).content
-            display_url, extra = _save_still_locally(
-                img_bytes,
-                session_id=session_id,
-                shot_id=shot_id,
-                logo=logo,
-            )
-            metadata.update(extra)
-        except Exception as e:
-            # Local download/compose failed — keep the UI working with the
-            # remote URL while it's still valid.
-            display_url = original_url
-            metadata["download_error"] = str(e)
-            print(
-                f"[shot {shot_id}] download to local failed (non-fatal): {e}",
-                flush=True,
-            )
-
-        storage.update_shot_image(
-            session_id,
-            shot_id,
-            status="succeeded",
-            url=display_url,
-            metadata=metadata,
-        )
-    except apis.ContentModerationError as e:
-        failure_md: dict[str, Any] = {
-            "category": "moderation",
-            "code": e.code,
-            "message": e.message,
-            "current_prompt": prompt,  # let the next retry soften this exact prompt
-        }
-        if extra_metadata:
-            failure_md.update(extra_metadata)
-        storage.update_shot_image(
-            session_id,
-            shot_id,
-            status="failed",
-            error=f"{e.code}: {e.message}",
-            metadata=failure_md,
-        )
+        metadata.update(extra)
     except Exception as e:
-        failure_md = {"current_prompt": prompt}
-        if extra_metadata:
-            failure_md.update(extra_metadata)
-        storage.update_shot_image(
-            session_id,
-            shot_id,
-            status="failed",
-            error=str(e),
-            metadata=failure_md,
+        # Local download/compose failed — keep the UI working with the
+        # remote URL while it's still valid.
+        display_url = original_url
+        metadata["download_error"] = str(e)
+        print(
+            f"[shot {shot_id}] download to local failed (non-fatal): {e}",
+            flush=True,
         )
+
+    storage.update_shot_image(
+        session_id,
+        shot_id,
+        status="succeeded",
+        url=display_url,
+        metadata=metadata,
+    )
 
 
 def start_image_generation(session_id: str, executor: ThreadPoolExecutor) -> None:
