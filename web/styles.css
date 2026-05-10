@@ -872,16 +872,22 @@ code {
   .footer-inner { flex-direction: column; gap: 4px; }
 }
 
-/* ---------- Nav (header) ---------- */
+/* ---------- Nav (header) ----------
+   Apple-style segmented tab pattern: pill container with two equal-weight
+   tabs. Inactive tabs have a hover background so it's obvious they're
+   clickable; active tab has a white pill background + emerald text. */
 .nav {
-  display: flex;
-  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 3px;
 }
 .nav a {
+  display: inline-flex;
+  align-items: center;
   padding: 6px 16px;
   border-radius: 999px;
   font-size: 13px;
@@ -889,13 +895,65 @@ code {
   color: var(--muted);
   text-decoration: none;
   transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
 }
-.nav a:hover { color: var(--text); }
+.nav a:hover {
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.04);
+}
 .nav a.active {
   background: var(--surface);
   color: var(--emerald);
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(20, 30, 25, 0.08);
+}
+.nav a.active:hover {
+  /* don't apply the hover bg darken on the active tab — it's already
+     visually elevated by the white pill + shadow. */
+  background: var(--surface);
+}
+
+/* Setup-needed indicator: a tiny red dot inline before "Settings". Only
+   visible when the link has the .needs-setup class (toggled by JS based
+   on /api/config/status). Steady-state = invisible. */
+.nav a#settings-link.needs-setup::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--danger);
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: 2px;
+  box-shadow: 0 0 0 2px rgba(178, 58, 58, 0.18);
+}
+
+/* Topbar action button (sits to the right of .nav). Pill-shaped,
+   clearly bordered so it reads as an action button rather than text. */
+.topbar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+  padding: 7px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.topbar-action:hover {
+  background: var(--emerald-light);
+  border-color: var(--emerald);
+  color: var(--emerald);
+}
+.topbar-action:active {
+  transform: translateY(1px);
 }
 
 /* ---------- Settings page ----------
@@ -955,32 +1013,44 @@ code {
 }
 
 #save-btn {
-  padding: 11px 22px;
+  padding: 10px 22px;
   background: var(--emerald);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s;
 }
 #save-btn:hover { background: var(--emerald-dark); }
+#save-btn:active { transform: translateY(1px); }
 #save-btn:disabled { background: var(--muted); cursor: wait; }
 
+/* Secondary button — Apple-style "push button" affordance. Always has a
+   visible edge (white bg + 1px border + tiny shadow) so it reads as a
+   button regardless of what page-color it sits on. Earlier attempt used
+   bg-color + transparent border, which made the button disappear on the
+   Settings actions row (whose own bg is the same color). */
 button.secondary {
-  padding: 11px 18px;
-  background: var(--bg);
+  padding: 10px 18px;
+  background: var(--surface);
   color: var(--text);
-  border: 1px solid transparent;
-  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  box-shadow: 0 1px 1px rgba(20, 30, 25, 0.03);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 button.secondary:hover {
   background: var(--emerald-light);
+  border-color: var(--emerald);
   color: var(--emerald);
+}
+button.secondary:active {
+  transform: translateY(1px);
 }
 
 .save-toast {
@@ -1046,29 +1116,9 @@ button.secondary:hover {
   margin: 0 auto;
 }
 
-/* New-session action lives at the bottom of the stepper rail (Apple-style:
-   action next to the rail it replaces; topbar stays pure identity + nav).
-   Styled as a quiet text-link, separated from the steps with a hairline
-   divider — does NOT compete with the active step indicator. */
-.stepper-new-session {
-  display: block;
-  width: calc(100% - 36px);
-  margin: 14px 18px 0;
-  padding: 12px 0 4px;
-  border: none;
-  border-top: 1px solid var(--border-soft);
-  background: transparent;
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--muted);
-  text-align: left;
-  cursor: pointer;
-  transition: color 0.15s;
-}
-.stepper-new-session:hover {
-  color: var(--emerald);
-}
+/* (.stepper-new-session removed — + New session is a session-level
+   action and lives in the topbar as .topbar-action, not at the bottom
+   of a per-session rail. See .topbar-action above.) */
 
 .panel-head {
   display: flex;
@@ -1093,17 +1143,19 @@ button.secondary:hover {
 }
 
 .primary {
-  padding: 11px 22px;
+  padding: 10px 22px;
   background: var(--emerald);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s;
 }
 .primary:hover { background: var(--emerald-dark); }
-.primary:disabled { background: var(--muted); cursor: not-allowed; }
+.primary:active { transform: translateY(1px); }
+.primary:disabled { background: var(--muted); cursor: not-allowed; transform: none; }
 
 /* ---------- Chat panel ---------- */
 .chat-panel { padding: 24px 28px; }
@@ -1619,24 +1671,9 @@ button.secondary:hover {
   max-width: 720px;
 }
 
-.nav-settings {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.1;
-}
-/* Settings status indicator. Apple-style: silent when steady-state.
-   Only appears (display from .hidden removal) when something needs
-   attention — small red "● Setup needed" below the link. */
-.nav-settings .config-mini {
-  margin-top: 3px;
-  margin-left: 14px;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  pointer-events: none;
-}
-.config-mini.missing { color: var(--danger); }
+/* (Settings status indicator dropped — replaced by an inline ::before
+   red dot on the Settings link itself, see .nav a#settings-link rules.
+   No more .nav-settings column wrapper or .config-mini element.) */
 
 /* ============================================================
    Two-column layout: stepper + content

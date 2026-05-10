@@ -59,10 +59,10 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
 // ---------- Boot ------------------------------------------------------------
 //
 // Init in two phases. Phase 1 is fully synchronous so a network hiccup or a
-// missing element (e.g. config-badge) can never starve the rest of the
-// listeners — past versions had `await refreshConfigBadge()` blocking the
-// load-sample binding behind it, which is why the button silently no-op'd
-// for some users.
+// missing element can never starve the rest of the listeners — past
+// versions had `await refreshConfigBadge()` blocking the load-sample
+// binding behind it, which is why the button silently no-op'd for some
+// users.
 
 (function init() {
   setStepperFromState("chat");
@@ -205,10 +205,10 @@ function wireAssetChip({ chipId, inputId, removeId, onPick, onRemove }) {
 
 // ---------- Config status ---------------------------------------------------
 //
-// Apple-style: badge is silent when everything works. Only appears when
-// the user actually needs to do something. A green "✓ ready" tag in
-// steady-state would compete with the Settings link for attention and
-// celebrate something the user shouldn't have to think about.
+// Apple-style: indicator is silent when everything works. Only appears when
+// the user needs to do something. Toggles a CSS class on the Settings link
+// itself — a small red ::before dot shows up when config is incomplete.
+// No separate badge element competing with the link for click area.
 async function refreshConfigBadge() {
   let status;
   try {
@@ -216,20 +216,17 @@ async function refreshConfigBadge() {
   } catch {
     status = { configured: false, missing: ["?"] };
   }
-  const badge = $("config-badge");
-  if (!badge) return !!status.configured;
+  const link = $("settings-link");
+  if (!link) return !!status.configured;
   if (status.configured) {
-    badge.classList.add("hidden");
-    badge.textContent = "";
-    badge.removeAttribute("title");
+    link.classList.remove("needs-setup");
+    link.removeAttribute("title");
   } else {
-    badge.classList.remove("hidden");
-    badge.textContent = "● Setup needed";
+    link.classList.add("needs-setup");
     const missing = status.missing || [];
-    badge.title = missing.length
-      ? `Missing: ${missing.join(", ")}. Click Settings to configure.`
-      : "Click Settings to configure.";
-    badge.className = "config-mini missing";
+    link.title = missing.length
+      ? `Setup needed: ${missing.join(", ")}.`
+      : "Setup needed — click to configure.";
   }
   return !!status.configured;
 }

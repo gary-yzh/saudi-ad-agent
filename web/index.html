@@ -27,14 +27,18 @@
     </div>
     <nav class="nav">
       <a href="/" class="active">Console</a>
-      <div class="nav-settings">
-        <a href="/settings">Settings</a>
-        <!-- Apple-style: badge stays hidden when everything is configured.
-             Only appears when there's something to fix — small red dot +
-             "Setup needed". Steady-state = silent. -->
-        <span id="config-badge" class="config-mini hidden"></span>
-      </div>
+      <!-- A red ::before dot appears on this link when config is incomplete
+           (see .needs-setup CSS below). Steady-state: clean link, no badge. -->
+      <a href="/settings" id="settings-link">Settings</a>
     </nav>
+    <!-- Session-level action — opens a fresh session in a new tab. Apple
+         pattern: instance-creation actions live in the toolbar (Mail
+         Compose, Notes New Note, Finder New Folder), not in a sidebar
+         rail. Styled as a clear pill button so it's obviously clickable. -->
+    <button id="new-session-btn" class="topbar-action" type="button"
+            title="Open a fresh session in a new tab — your current work stays open here.">
+      ＋ New session
+    </button>
   </header>
 
   <main class="run-main two-col">
@@ -72,13 +76,6 @@
           </span>
         </li>
       </ol>
-      <!-- Apple-style: "start fresh" action lives next to the rail it
-           replaces — bottom of the stepper. Quiet text-link styling so
-           it doesn't compete with the active step indicator. -->
-      <button id="new-session-btn" class="stepper-new-session" type="button"
-              title="Open a fresh session in a new tab — your current work stays open here.">
-        ＋ New session
-      </button>
     </aside>
 
     <!-- ============ RIGHT: content (revealed step by step) ============ -->
