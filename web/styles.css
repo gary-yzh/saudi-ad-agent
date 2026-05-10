@@ -1683,3 +1683,86 @@ button.secondary:hover { background: var(--bg); }
   font-size: 12.5px;
   letter-spacing: 0.02em;
 }
+
+/* ============================================================
+   Brief panel — asset chips + tighter intro→form flow
+   ============================================================ */
+
+.panel-head { gap: 12px; }
+
+.brief-assets {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.asset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  user-select: none;
+}
+.asset-chip.is-empty:hover {
+  border-color: var(--emerald);
+  color: var(--emerald);
+  background: var(--emerald-light);
+}
+.asset-chip.is-loaded {
+  border: 1px solid var(--success);
+  background: #E0F2E5;
+  color: var(--success);
+  border-style: solid;
+}
+.asset-chip-icon { font-size: 13px; }
+
+.asset-chip-loaded-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.asset-chip-check { font-weight: 700; }
+.asset-chip-name {
+  font-weight: 500;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.06);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.asset-chip-remove:hover { background: var(--danger); color: white; }
+
+.brief-asset-error {
+  margin: -4px 0 12px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--danger);
+  background: #FBE6E6;
+  border: 1px solid var(--danger);
+  border-radius: 5px;
+}
+
+/* Pull the chat-empty intro flush with the chat-form so they read as one block */
+.chat-panel .chat-log:empty { margin: 0; padding: 0; }
+.chat-empty + .chat-log { margin-top: 12px; }
+.chat-empty { margin-bottom: 14px; }

@@ -25,20 +25,30 @@ let imagePollHandle = null;
 let videoPollHandle = null;
 
 // ---------- Boot ------------------------------------------------------------
-(async function init() {
-  setStepperFromState("chat");
-  await refreshConfigBadge();
+//
+// Init in two phases. Phase 1 is fully synchronous so a network hiccup or a
+// missing element (e.g. config-badge) can never starve the rest of the
+// listeners — past versions had `await refreshConfigBadge()` blocking the
+// load-sample binding behind it, which is why the button silently no-op'd
+// for some users.
 
+(function init() {
+  setStepperFromState("chat");
+
+  // ---- Phase 1: synchronous listeners ----
+
+  // Sample brief — load into textarea and focus.
   $("load-sample").addEventListener("click", () => {
-    $("chat-input").value = SAMPLE_BRIEF;
-    $("chat-input").dispatchEvent(new Event("input"));
-    $("chat-input").focus();
+    const ti = $("chat-input");
+    ti.value = SAMPLE_BRIEF;
+    ti.dispatchEvent(new Event("input"));
+    ti.focus();
   });
 
+  // Chat input typing & Enter-to-send (Shift+Enter for newline).
   $("chat-input").addEventListener("input", () => {
     $("chat-send").disabled = $("chat-input").value.trim().length === 0;
   });
-  // Enter to send · Shift+Enter for newline
   $("chat-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
@@ -46,37 +56,81 @@ let videoPollHandle = null;
     }
   });
 
+  // Forms / panel buttons.
   $("chat-form").addEventListener("submit", onSendMessage);
   $("confirm-storyboard-btn").addEventListener("click", onConfirmStoryboard);
   $("generate-video-btn").addEventListener("click", onGenerateVideo);
   $("new-session-btn").addEventListener("click", onNewSession);
 
-  // Brand-manual upload widget
-  $("brand-rag-file").addEventListener("change", onBrandManualPicked);
-  $("brand-rag-remove").addEventListener("click", onBrandManualRemove);
-  $("brand-rag-replace").addEventListener("click", () => $("brand-rag-file").click());
+  // Asset chips (logo + brand manual). The chip itself is a button; clicks
+  // not on the inner × open the file picker.
+  wireAssetChip({
+    chipId: "logo-chip",
+    inputId: "brand-logo-file",
+    removeId: "logo-chip-remove",
+    onPick: onBrandLogoPicked,
+    onRemove: onBrandLogoRemove,
+  });
+  wireAssetChip({
+    chipId: "pdf-chip",
+    inputId: "brand-rag-file",
+    removeId: "pdf-chip-remove",
+    onPick: onBrandManualPicked,
+    onRemove: onBrandManualRemove,
+  });
 
-  // Brand-logo upload widget
-  $("brand-logo-file").addEventListener("change", onBrandLogoPicked);
-  $("brand-logo-remove").addEventListener("click", onBrandLogoRemove);
-  $("brand-logo-replace").addEventListener("click", () => $("brand-logo-file").click());
+  // Defensive document-level fallback for the sample button — if anything
+  // above ever throws, this still works.
+  document.addEventListener("click", (e) => {
+    const t = e.target instanceof Element ? e.target : null;
+    if (t && (t.id === "load-sample" || t.closest("#load-sample"))) {
+      const ti = $("chat-input");
+      if (ti && !ti.value) {
+        ti.value = SAMPLE_BRIEF;
+        ti.dispatchEvent(new Event("input"));
+        ti.focus();
+      }
+    }
+  });
+
+  // ---- Phase 2: async work (fire-and-forget; never blocks listeners) ----
+
+  refreshConfigBadge().catch((err) => console.warn("config status failed:", err));
 
   const stored = localStorage.getItem(STORE_KEY);
   if (stored) {
     SESSION_ID = stored;
-    try {
-      const view = await fetch(`/api/sessions/${SESSION_ID}`).then((r) => {
-        if (!r.ok) throw new Error("404");
-        return r.json();
+    fetch(`/api/sessions/${SESSION_ID}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject("404")))
+      .then(restoreView)
+      .catch(() => {
+        localStorage.removeItem(STORE_KEY);
+        SESSION_ID = null;
       });
-      restoreView(view);
-    } catch {
-      // session no longer exists server-side
-      localStorage.removeItem(STORE_KEY);
-      SESSION_ID = null;
-    }
   }
 })();
+
+function wireAssetChip({ chipId, inputId, removeId, onPick, onRemove }) {
+  const chip = $(chipId);
+  const input = $(inputId);
+  const removeEl = $(removeId);
+  if (!chip || !input) return;
+
+  chip.addEventListener("click", (e) => {
+    const t = e.target instanceof Element ? e.target : null;
+    // Don't open file picker when the user is clicking the inner remove ×
+    if (t && (t === removeEl || (removeEl && removeEl.contains(t)))) return;
+    input.click();
+  });
+  if (removeEl) {
+    removeEl.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onRemove();
+    });
+  }
+  input.addEventListener("change", onPick);
+}
 
 // ---------- Config status ---------------------------------------------------
 async function refreshConfigBadge() {
@@ -612,117 +666,60 @@ function startVideoPolling() {
   }, 5000);
 }
 
-// ---------- Brand manual upload (RAG) --------------------------------------
-function showBrandManualEmpty() {
-  $("brand-rag-empty").classList.remove("hidden");
-  $("brand-rag-loaded").classList.add("hidden");
-  $("brand-rag-uploading").classList.add("hidden");
-  $("brand-rag-error").classList.add("hidden");
-  $("brand-rag-file").value = "";
-}
+// ---------- Asset chips (logo + brand manual) ------------------------------
+//
+// One shared model for both chips. State is encoded by classes on the chip:
+//   .is-empty   — picker open on click
+//   .is-loaded  — shows ✓ filename ×, click reopens picker
+//
+// Errors surface in the shared `#brief-asset-error` slot below the panel head.
 
-function showBrandManualLoaded(manual) {
-  $("brand-rag-empty").classList.add("hidden");
-  $("brand-rag-loaded").classList.remove("hidden");
-  $("brand-rag-uploading").classList.add("hidden");
-  $("brand-rag-error").classList.add("hidden");
-  $("brand-rag-name").textContent = manual.filename || "manual.pdf";
-  const mb = ((manual.bytes || 0) / 1024 / 1024).toFixed(2);
-  $("brand-rag-stats").textContent = `${manual.pages} pages · ${mb} MB · uploaded ${manual.created_at || ""}`;
-}
-
-function showBrandManualUploading() {
-  $("brand-rag-empty").classList.add("hidden");
-  $("brand-rag-loaded").classList.add("hidden");
-  $("brand-rag-uploading").classList.remove("hidden");
-  $("brand-rag-error").classList.add("hidden");
-}
-
-function showBrandManualError(msg) {
-  $("brand-rag-error").classList.remove("hidden");
-  $("brand-rag-error").textContent = msg;
-}
-
-async function onBrandManualPicked(e) {
-  const file = e.target.files && e.target.files[0];
-  if (!file) return;
-  if (!file.name.toLowerCase().endsWith(".pdf")) {
-    showBrandManualError("Only .pdf files are accepted.");
-    return;
-  }
-  await ensureSession();
-  showBrandManualUploading();
-
-  const fd = new FormData();
-  fd.append("file", file, file.name);
-
-  try {
-    const r = await fetch(`/api/sessions/${SESSION_ID}/brand-manual`, {
-      method: "POST",
-      body: fd,
-    });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      throw new Error(j.detail || `HTTP ${r.status}`);
-    }
-    const j = await r.json();
-    const manual = { ...j.manual, created_at: new Date().toISOString().slice(0, 19).replace("T", " ") };
-    showBrandManualLoaded(manual);
-  } catch (err) {
-    showBrandManualEmpty();
-    showBrandManualError(`Upload failed: ${err.message || err}`);
+function setChipState(chipId, nameId, state, info) {
+  const chip = $(chipId);
+  if (!chip) return;
+  const emptyLabel = chip.querySelector(".asset-chip-empty-label");
+  const loadedWrap = chip.querySelector(".asset-chip-loaded-wrap");
+  chip.classList.remove("is-empty", "is-loaded");
+  if (state === "loaded" && info) {
+    chip.classList.add("is-loaded");
+    if (emptyLabel) emptyLabel.classList.add("hidden");
+    if (loadedWrap) loadedWrap.classList.remove("hidden");
+    const nameEl = $(nameId);
+    if (nameEl) nameEl.textContent = info.filename || "(file)";
+  } else {
+    chip.classList.add("is-empty");
+    if (emptyLabel) emptyLabel.classList.remove("hidden");
+    if (loadedWrap) loadedWrap.classList.add("hidden");
   }
 }
 
-async function onBrandManualRemove() {
-  if (!SESSION_ID) return;
-  if (!confirm("Remove the uploaded brand manual? Storyboard generation will fall back to the bundled demo manual.")) return;
-  try {
-    await fetch(`/api/sessions/${SESSION_ID}/brand-manual`, { method: "DELETE" });
-  } catch (e) {
-    console.warn("delete failed", e);
-  }
-  showBrandManualEmpty();
+function showBriefAssetError(msg) {
+  const el = $("brief-asset-error");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  setTimeout(() => el.classList.add("hidden"), 6000);
 }
 
-// ---------- Brand logo upload ----------------------------------------------
-function showBrandLogoEmpty() {
-  $("brand-logo-empty").classList.remove("hidden");
-  $("brand-logo-loaded").classList.add("hidden");
-  $("brand-logo-error").classList.add("hidden");
-  $("brand-logo-file").value = "";
-}
+function showBrandLogoEmpty()       { setChipState("logo-chip", "logo-chip-name", "empty"); $("brand-logo-file").value = ""; }
+function showBrandLogoLoaded(info)  { setChipState("logo-chip", "logo-chip-name", "loaded", info); }
+function showBrandManualEmpty()     { setChipState("pdf-chip",  "pdf-chip-name",  "empty"); $("brand-rag-file").value = ""; }
+function showBrandManualLoaded(m)   { setChipState("pdf-chip",  "pdf-chip-name",  "loaded", m); }
 
-function showBrandLogoLoaded(logo) {
-  $("brand-logo-empty").classList.add("hidden");
-  $("brand-logo-loaded").classList.remove("hidden");
-  $("brand-logo-error").classList.add("hidden");
-  $("brand-logo-name").textContent = logo.filename || "logo";
-  const kb = ((logo.bytes || 0) / 1024).toFixed(1);
-  const dim = (logo.width && logo.height) ? `${logo.width}×${logo.height}` : "";
-  $("brand-logo-stats").textContent = [dim, `${kb} KB`].filter(Boolean).join(" · ");
-}
-
-function showBrandLogoError(msg) {
-  $("brand-logo-error").classList.remove("hidden");
-  $("brand-logo-error").textContent = msg;
-}
-
+// ---- Brand logo upload ----
 async function onBrandLogoPicked(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
   if (!/\.(png|jpe?g|webp)$/i.test(file.name)) {
-    showBrandLogoError("Only PNG / JPG / WEBP images are accepted.");
+    showBriefAssetError("Logo must be PNG / JPG / WEBP.");
+    e.target.value = "";
     return;
   }
   await ensureSession();
   const fd = new FormData();
   fd.append("file", file, file.name);
   try {
-    const r = await fetch(`/api/sessions/${SESSION_ID}/brand-logo`, {
-      method: "POST",
-      body: fd,
-    });
+    const r = await fetch(`/api/sessions/${SESSION_ID}/brand-logo`, { method: "POST", body: fd });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       throw new Error(j.detail || `HTTP ${r.status}`);
@@ -731,19 +728,52 @@ async function onBrandLogoPicked(e) {
     showBrandLogoLoaded(j.logo);
   } catch (err) {
     showBrandLogoEmpty();
-    showBrandLogoError(`Upload failed: ${err.message || err}`);
+    showBriefAssetError(`Logo upload failed: ${err.message || err}`);
   }
 }
 
 async function onBrandLogoRemove() {
-  if (!SESSION_ID) return;
-  if (!confirm("Remove the uploaded logo? Future stills won't be composited.")) return;
+  if (!SESSION_ID) { showBrandLogoEmpty(); return; }
+  if (!confirm("Remove the uploaded logo?")) return;
   try {
     await fetch(`/api/sessions/${SESSION_ID}/brand-logo`, { method: "DELETE" });
-  } catch (e) {
-    console.warn("delete failed", e);
-  }
+  } catch (e) { console.warn("logo delete failed", e); }
   showBrandLogoEmpty();
+}
+
+// ---- Brand manual upload ----
+async function onBrandManualPicked(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith(".pdf")) {
+    showBriefAssetError("Brand manual must be a PDF.");
+    e.target.value = "";
+    return;
+  }
+  await ensureSession();
+  const fd = new FormData();
+  fd.append("file", file, file.name);
+  try {
+    const r = await fetch(`/api/sessions/${SESSION_ID}/brand-manual`, { method: "POST", body: fd });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.detail || `HTTP ${r.status}`);
+    }
+    const j = await r.json();
+    showBrandManualLoaded(j.manual);
+  } catch (err) {
+    showBrandManualEmpty();
+    showBriefAssetError(`Brand manual upload failed: ${err.message || err}`);
+  }
+}
+
+async function onBrandManualRemove() {
+  if (!SESSION_ID) { showBrandManualEmpty(); return; }
+  if (!confirm("Remove the uploaded brand manual? Storyboard generation will fall back to the bundled demo manual.")) return;
+  try {
+    await fetch(`/api/sessions/${SESSION_ID}/brand-manual`, { method: "DELETE" });
+  } catch (e) { console.warn("manual delete failed", e); }
+  showBrandManualEmpty();
 }
 
 // ---------- Per-shot refine + retry ----------------------------------------

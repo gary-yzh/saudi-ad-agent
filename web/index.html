@@ -75,7 +75,33 @@
       <section class="card chat-panel">
         <header class="panel-head">
           <h2><span class="step-num">1</span> Brief</h2>
+          <div class="brief-assets" id="brief-assets" title="Optional brand inputs the planner will use">
+            <!-- Logo chip -->
+            <button type="button" class="asset-chip is-empty" id="logo-chip" data-asset="logo" title="Add brand logo (composited onto every still). PNG / JPG / WEBP.">
+              <span class="asset-chip-icon">🏷</span>
+              <span class="asset-chip-label asset-chip-empty-label">Add logo</span>
+              <span class="asset-chip-loaded-wrap hidden">
+                <span class="asset-chip-check">✓</span>
+                <span class="asset-chip-name" id="logo-chip-name"></span>
+                <span class="asset-chip-remove" id="logo-chip-remove" role="button" aria-label="Remove logo">×</span>
+              </span>
+              <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
+            </button>
+            <!-- PDF chip -->
+            <button type="button" class="asset-chip is-empty" id="pdf-chip" data-asset="pdf" title="Add brand manual PDF (used as RAG context: palette, modesty rules, sign-off …)">
+              <span class="asset-chip-icon">📄</span>
+              <span class="asset-chip-label asset-chip-empty-label">Add brand manual</span>
+              <span class="asset-chip-loaded-wrap hidden">
+                <span class="asset-chip-check">✓</span>
+                <span class="asset-chip-name" id="pdf-chip-name"></span>
+                <span class="asset-chip-remove" id="pdf-chip-remove" role="button" aria-label="Remove brand manual">×</span>
+              </span>
+              <input type="file" id="brand-rag-file" accept="application/pdf,.pdf" hidden>
+            </button>
+          </div>
         </header>
+
+        <div id="brief-asset-error" class="brief-asset-error hidden"></div>
 
         <div id="chat-empty" class="chat-empty">
           <p class="placeholder-title">Start with a quick brief.</p>
@@ -98,65 +124,6 @@
             <button type="button" id="load-sample" class="link">Load Ajwa dates sample</button>
           </div>
         </div>
-
-        <!-- Brand uploads -->
-        <div class="brand-uploads">
-
-          <div class="brand-rag" id="brand-logo-widget">
-            <div class="upload-label">
-              <span class="upload-label-title">Upload Logo <span class="muted small">(optional)</span></span>
-              <span class="upload-label-sub">Composited onto every still in the bottom-right.</span>
-            </div>
-            <div class="brand-rag-row" id="brand-logo-empty">
-              <span class="brand-rag-icon">🏷</span>
-              <span class="muted small">PNG / JPG / WEBP, ≤ 5 MB.</span>
-              <label class="brand-rag-upload">
-                <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp">
-                <span>Choose file</span>
-              </label>
-            </div>
-            <div class="brand-rag-row hidden" id="brand-logo-loaded">
-              <span class="brand-rag-icon">🏷</span>
-              <span class="brand-rag-meta">
-                <strong id="brand-logo-name">—</strong>
-                <span class="muted small" id="brand-logo-stats">—</span>
-              </span>
-              <button type="button" id="brand-logo-replace" class="link">Replace</button>
-              <button type="button" id="brand-logo-remove" class="link link-danger">Remove</button>
-            </div>
-            <div class="brand-rag-error hidden" id="brand-logo-error"></div>
-          </div>
-
-          <div class="brand-rag" id="brand-rag">
-            <div class="upload-label">
-              <span class="upload-label-title">Customer Brand Manual <span class="muted small">(optional)</span></span>
-              <span class="upload-label-sub">PDF used as the planner's source-of-truth: palette, modesty rules, sign-off, etc.</span>
-            </div>
-            <div class="brand-rag-row" id="brand-rag-empty">
-              <span class="brand-rag-icon">📄</span>
-              <span class="muted small">PDF, text-based (not scanned), ≤ 20 MB.</span>
-              <label class="brand-rag-upload">
-                <input type="file" id="brand-rag-file" accept="application/pdf,.pdf">
-                <span>Choose PDF</span>
-              </label>
-            </div>
-            <div class="brand-rag-row hidden" id="brand-rag-loaded">
-              <span class="brand-rag-icon">📎</span>
-              <span class="brand-rag-meta">
-                <strong id="brand-rag-name">—</strong>
-                <span class="muted small" id="brand-rag-stats">—</span>
-              </span>
-              <button type="button" id="brand-rag-replace" class="link">Replace</button>
-              <button type="button" id="brand-rag-remove" class="link link-danger">Remove</button>
-            </div>
-            <div class="brand-rag-row hidden" id="brand-rag-uploading">
-              <span class="brand-rag-icon">⏳</span>
-              <span class="muted small">Parsing PDF…</span>
-            </div>
-            <div class="brand-rag-error hidden" id="brand-rag-error"></div>
-          </div>
-
-        </div><!-- /.brand-uploads -->
 
         <ol id="chat-log" class="chat-log"></ol>
 
