@@ -1401,6 +1401,11 @@ button.secondary:active {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
+  /* Don't stretch shorter cards to match the tallest in their row —
+     combined with the line-clamp on .image-scene below, every card
+     ends up natural-height with no orphaned blank space above the
+     refine box. */
+  align-items: start;
 }
 .image-card {
   background: var(--bg);
@@ -1480,6 +1485,18 @@ button.secondary:active {
   cursor: help;
   /* On hover, the title attribute shows the actual visual_prompt sent to
      Seedream — useful for diagnosing scene-vs-prompt drift. */
+
+  /* Clamp scene to 3 lines max with ellipsis. Combined with min-height
+     this gives every card a consistent meta height regardless of how
+     long the LLM's scene description is — the gap that used to appear
+     above the refine box on short-scene cards is gone. The full scene
+     text + visual_prompt are still available via the hover tooltip. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: calc(3 * 1.5em);
 }
 
 /* ---------- Video panel ---------- */

@@ -828,13 +828,90 @@ def _gen_video(session_id: str, selected_ids: list[int]) -> None:
     )
     storage.update_session_state(session_id, "video_running")
 
-    try:
-        result = _run_with_config(
-            apis.seedance_generate,
-            image_urls=selected_image_urls,
-            motion_prompt=motion_prompt,
-            duration_s=float(duration),
+    # Auto-soften retry on Doubao video moderation. Mirrors what _gen_one_shot
+    # does for Seedream, but with MAX = 1 instead of 2 because each Seedance
+    # call is 3-30 minutes — auto-retrying twice could keep the user waiting
+    # an hour. One retry caps total wait at ~30+30 = up to 60 min worst case.
+    from .nodes.tool_use import _soften_prompt  # local import — avoids cycles
+
+    MAX_VIDEO_AUTO_RETRIES = 1
+    current_motion_prompt = motion_prompt
+    softening_history: list[dict[str, Any]] = []
+    last_exc: Exception | None = None
+    last_was_moderation = False
+    result: dict | None = None
+
+    for attempt in range(MAX_VIDEO_AUTO_RETRIES + 1):
+        try:
+            result = _run_with_config(
+                apis.seedance_generate,
+                image_urls=selected_image_urls,
+                motion_prompt=current_motion_prompt,
+                duration_s=float(duration),
+            )
+            break  # success — fall through to download/persist
+        except apis.ContentModerationError as e:
+            last_exc = e
+            last_was_moderation = True
+            if attempt >= MAX_VIDEO_AUTO_RETRIES:
+                break
+            try:
+                softened = _soften_prompt(
+                    current_motion_prompt,
+                    stage="video",
+                    reason=e.message,
+                    attempt=attempt + 1,
+                )
+            except Exception as soft_err:
+                last_exc = soft_err
+                break
+            softening_history.append({
+                "attempt": attempt + 1,
+                "moderation_code": e.code,
+                "moderation_msg": (e.message or "")[:200],
+                "softened_head": softened[:200],
+            })
+            current_motion_prompt = softened
+        except Exception as e:
+            last_exc = e
+            last_was_moderation = False
+            break
+
+    if result is None:
+        # All attempts failed — surface a user-facing message that says what
+        # to do next, not the raw API error code + request id.
+        if last_was_moderation:
+            attempts_made = len(softening_history) + 1
+            error_str = (
+                f"Doubao's video safety filter rejected the generated video "
+                f"after {attempts_made} attempt{'s' if attempts_made > 1 else ''}. "
+                f"This is harder to fix than the per-image filter: even if every "
+                f"still passed the image filter, the video filter re-scans the "
+                f"animated output and can flag it for the same cultural / "
+                f"religious cues. Try one of:\n"
+                f"  • De-select any shots showing people in culturally-coded "
+                f"attire (thobe / abaya / hijab) and pick more product-focused "
+                f"stills\n"
+                f"  • Re-draft the storyboard with a more product-centric brief "
+                f"(less people, more product close-ups)"
+            )
+        else:
+            error_str = str(last_exc) if last_exc else "unknown error"
+        storage.upsert_video(
+            session_id=session_id,
+            selected_shot_ids=selected_ids,
+            status="failed",
+            error=error_str,
+            metadata={
+                "auto_soften_attempts": softening_history,
+                "current_motion_prompt": current_motion_prompt,
+            } if softening_history else None,
         )
+        storage.update_session_state(session_id, "images_done")
+        return
+
+    # Success path — `result` is set, motion_prompt may have been softened.
+    try:
         remote_url = result["url"]
 
         # Download to local so the browser plays it from our origin
@@ -842,29 +919,26 @@ def _gen_video(session_id: str, selected_ids: list[int]) -> None:
         bytes_written = _download_to(local_path, remote_url)
         local_url = f"/runs/{session_id}/video.mp4"
 
+        meta_extra: dict[str, Any] = {
+            "bytes": bytes_written,
+            "task_id": result.get("task_id"),
+            "duration_s": result.get("duration_s"),
+            "ratio": result.get("ratio"),
+            "model": result.get("model"),
+        }
+        if softening_history:
+            meta_extra["auto_soften_attempts"] = softening_history
+            meta_extra["motion_prompt_used"] = current_motion_prompt[:1500]
+
         storage.upsert_video(
             session_id=session_id,
             selected_shot_ids=selected_ids,
             status="succeeded",
             remote_url=remote_url,
             local_url=local_url,
-            metadata={
-                "bytes": bytes_written,
-                "task_id": result.get("task_id"),
-                "duration_s": result.get("duration_s"),
-                "ratio": result.get("ratio"),
-                "model": result.get("model"),
-            },
+            metadata=meta_extra,
         )
         storage.update_session_state(session_id, "video_done")
-    except apis.ContentModerationError as e:
-        storage.upsert_video(
-            session_id=session_id,
-            selected_shot_ids=selected_ids,
-            status="failed",
-            error=f"Doubao safety filter rejected the video: {e.code}: {e.message}",
-        )
-        storage.update_session_state(session_id, "images_done")
     except Exception as e:
         storage.upsert_video(
             session_id=session_id,
