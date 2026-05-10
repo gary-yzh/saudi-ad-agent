@@ -1118,22 +1118,24 @@ button.secondary:hover {
    whitespace, refined type. */
 .chat-empty {
   text-align: center;
-  /* Slightly asymmetric — extra top padding so the hero "sits" in the
-     panel rather than crowding the head divider. */
-  padding: 44px 24px 36px;
+  /* The intro paragraph moved out (it now lives in the topbar subtitle
+     and the stepper intro, where each one belongs). What's left is a
+     short, focused hero — title + one usage hint + sample button —
+     so the padding is more compact than the old multi-paragraph hero. */
+  padding: 36px 24px 32px;
   margin: 0 auto 8px;
-  max-width: 520px;
+  max-width: 480px;
 }
 .chat-empty-title {
-  margin: 0 0 8px;
-  font-size: 19px;
+  margin: 0 0 10px;
+  font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text);
 }
 .chat-empty-sub {
   margin: 0 auto 22px;
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.6;
   color: var(--muted);
 }
@@ -1602,6 +1604,17 @@ button.secondary:hover {
   border-radius: var(--radius);
   padding: 18px 0;
   box-shadow: var(--shadow);
+}
+/* Short intro at the top of the stepper — describes the 4-step flow.
+   Sits right above the steps so the explanation hugs what it explains.
+   Not a heavy header — small, muted, hairline divider below. */
+.stepper-intro {
+  margin: 0 18px 14px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
 }
 .stepper ol {
   list-style: none;
