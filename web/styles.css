@@ -1313,27 +1313,54 @@ button.secondary:active {
   background: var(--emerald-light);
 }
 
+/* Chat compose area — Apple Mail compose vibe. Textarea is the primary
+   surface; Send is anchored to the bottom-right so a multi-line brief
+   doesn't push it up to the top. Subtle 10-px radius matches the rest
+   of the panel; the focus ring uses --emerald-light, same as form
+   inputs in Settings. */
 .chat-form {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 10px;
+  align-items: end;
 }
 .chat-form textarea {
   resize: vertical;
-  min-height: 56px;
+  min-height: 96px;            /* roomier default — fits ~4 lines without scroll */
+  font-family: inherit;
   font-size: 14px;
-  padding: 10px 12px;
+  line-height: 1.55;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.chat-form textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+.chat-form textarea:focus {
+  outline: none;
+  border-color: var(--emerald);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--emerald-light);
 }
 #chat-send {
-  padding: 0 18px;
-  height: 56px;
+  align-self: end;             /* anchor to bottom-right of the form area */
+  padding: 0 22px;
+  height: 44px;
   background: var(--emerald);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
 }
+#chat-send:hover:not(:disabled) { background: var(--emerald-dark); }
+#chat-send:active:not(:disabled) { transform: translateY(1px); }
 #chat-send:disabled { background: var(--muted); cursor: not-allowed; }
 
 /* ---------- Storyboard panel ---------- */
