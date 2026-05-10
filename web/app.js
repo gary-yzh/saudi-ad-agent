@@ -78,16 +78,17 @@ async function refreshConfigBadge() {
   } catch {
     status = { configured: false, missing: ["?"] };
   }
-  const badge = $("config-badge");
+  const pill = $("config-status");
+  const text = pill.querySelector(".status-text");
   if (status.configured) {
-    badge.textContent = "READY";
-    badge.title = "All keys configured.";
-    badge.className = "mode-badge live";
+    text.textContent = "Connected";
+    pill.title = "All API keys configured. Click to review settings.";
+    pill.className = "status-pill ok";
   } else {
     const miss = (status.missing || []).map((k) => k.replace(/^openai_/, "llm/")).join(", ");
-    badge.textContent = `UNCONFIGURED · ${miss}`;
-    badge.title = "Open Settings and fill in the missing keys.";
-    badge.className = "mode-badge unconfigured";
+    text.textContent = "Configure in Settings →";
+    pill.title = `Missing: ${miss}`;
+    pill.className = "status-pill warn";
   }
   return status.configured;
 }
@@ -389,11 +390,11 @@ function renderImageCardInner(shot, st) {
 
   const failureClass = failed && /sensitive|moderation/i.test(st.error || "") ? " moderation-fail" : "";
 
-  // Per-image controls: refine input (when ok), retry button (when failed)
+  // Per-image controls: refine box (when ok), retry button (when failed)
   const controls = succeeded
     ? `<form class="shot-refine" data-shot-id="${shot.id}">` +
-      `<input type="text" class="shot-refine-input" placeholder="Tweak this shot — e.g. 'darker background, no people'" maxlength="500">` +
-      `<button type="submit" class="shot-refine-send" title="Re-generate this shot">↻</button>` +
+      `<textarea class="shot-refine-input" rows="2" placeholder="Tweak this shot — e.g. 'darker background, no people, replace cup with a book'" maxlength="500"></textarea>` +
+      `<button type="submit" class="shot-refine-send">↻ Update shot</button>` +
       `</form>`
     : failed
     ? `<div class="shot-retry"><button type="button" class="shot-retry-btn" data-shot-id="${shot.id}">↻ Retry</button></div>`

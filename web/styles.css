@@ -4,15 +4,19 @@
   --emerald-light: #E5F1ED;
   --gold: #C9A24A;
   --sand: #E7D7B8;
-  --bg: #FAF7F0;
+  --bg: #F8F6EF;
   --surface: #FFFFFF;
-  --text: #1F1F1F;
-  --muted: #6B6B6B;
-  --border: #E5E2D8;
+  --surface-2: #FBFAF6;
+  --text: #111827;
+  --muted: #6B7280;
+  --border: #E7E4D9;
+  --border-strong: #D5D2C5;
   --danger: #B23A3A;
   --success: #2C7A4B;
-  --radius: 10px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 14px rgba(0, 0, 0, 0.05);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(20, 30, 25, 0.04), 0 4px 14px rgba(20, 30, 25, 0.04);
+  --shadow-elevated: 0 2px 6px rgba(20, 30, 25, 0.05), 0 12px 28px rgba(20, 30, 25, 0.06);
 }
 
 * { box-sizing: border-box; }
@@ -35,11 +39,12 @@ body {
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 18px 32px;
+  gap: 16px;
+  padding: 16px 32px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
+.topbar .brand { margin-right: auto; }
 
 .brand {
   display: flex;
@@ -68,6 +73,7 @@ body {
   color: var(--muted);
 }
 
+/* Legacy .mode-badge — used only on the settings page header now */
 .mode-badge {
   font-size: 11px;
   font-weight: 600;
@@ -75,31 +81,68 @@ body {
   padding: 6px 10px;
   border-radius: 4px;
   cursor: help;
-  transition: background 0.15s, color 0.15s, border 0.15s;
 }
 
-.mode-badge.unconfigured {
-  background: #FBE6E6;
-  color: var(--danger);
-  border: 1px solid var(--danger);
+/* Subtle status pill used in the run-page header (replaces the
+   button-looking 'Ready' badge). Just a dot + a label. */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
+.status-pill:hover { background: var(--bg); border-color: var(--border); }
 
-.mode-badge.live {
-  background: #FFF3D6;
-  color: #8A6A1F;
-  border: 1px solid var(--gold);
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
 }
+.status-pill.ok   .status-dot { background: var(--success); box-shadow: 0 0 0 3px rgba(44, 122, 75, 0.15); }
+.status-pill.ok   { color: var(--success); }
+.status-pill.warn .status-dot { background: var(--danger); box-shadow: 0 0 0 3px rgba(178, 58, 58, 0.15); }
+.status-pill.warn { color: var(--danger); font-weight: 600; }
 
 .api-status.ready { background: #E0F2E5; color: var(--success); }
 .api-status.missing { background: #FBE6E6; color: var(--danger); }
+
+/* Section title for upload widgets (Logo / Brand Manual) */
+.upload-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+.upload-label-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text);
+}
+.upload-label-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
 
 /* ---------- Layout ---------- */
 .grid {
   flex: 1;
   display: grid;
   grid-template-columns: minmax(380px, 460px) 1fr;
-  gap: 24px;
-  padding: 24px 32px;
+  gap: 28px;
+  padding: 32px 36px;
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
@@ -115,14 +158,19 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: 28px;
   box-shadow: var(--shadow);
+  transition: box-shadow 0.15s ease;
+}
+.card:hover {
+  box-shadow: var(--shadow-elevated);
 }
 
 .card h2 {
   margin: 0 0 18px;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 /* ---------- Form ---------- */
@@ -141,21 +189,22 @@ label > span {
   letter-spacing: 0.06em;
 }
 
-textarea, input[type="text"], select {
+textarea, input[type="text"], input[type="password"], input[type="number"], select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 14px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-family: inherit;
   font-size: 14px;
-  background: var(--bg);
+  background: var(--surface-2);
   color: var(--text);
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
-textarea { resize: vertical; min-height: 120px; line-height: 1.5; }
+textarea { resize: vertical; min-height: 120px; line-height: 1.55; }
 
-textarea:focus, input[type="text"]:focus, select:focus {
+textarea:focus, input[type="text"]:focus, input[type="password"]:focus,
+input[type="number"]:focus, select:focus {
   outline: none;
   border-color: var(--emerald);
   background: var(--surface);
@@ -692,24 +741,27 @@ footer {
 /* ---------- Nav (header) ---------- */
 .nav {
   display: flex;
-  gap: 6px;
-  margin-left: auto;
-  margin-right: 14px;
+  gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
 }
 .nav a {
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: 6px 16px;
+  border-radius: 999px;
   font-size: 13px;
   font-weight: 500;
   color: var(--muted);
   text-decoration: none;
   transition: background 0.15s, color 0.15s;
 }
-.nav a:hover { background: var(--bg); color: var(--text); }
+.nav a:hover { color: var(--text); }
 .nav a.active {
-  background: var(--emerald-light);
+  background: var(--surface);
   color: var(--emerald);
   font-weight: 600;
+  box-shadow: 0 1px 3px rgba(20, 30, 25, 0.08);
 }
 
 /* ---------- Settings page ---------- */
@@ -828,8 +880,8 @@ button.secondary:hover { background: var(--bg); }
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 24px 32px;
+  gap: 24px;
+  padding: 32px 36px 40px;
   max-width: 1100px;
   width: 100%;
   margin: 0 auto;
@@ -1169,17 +1221,20 @@ button.secondary:hover { background: var(--bg); }
 
 /* ---------- Brand manual (RAG) widget ---------- */
 .brand-rag {
-  margin: 12px 0;
-  padding: 0;
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
 .brand-rag-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
-  background: var(--bg);
+  padding: 10px 12px;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 12.5px;
 }
 .brand-rag-icon { font-size: 18px; flex-shrink: 0; }
@@ -1268,43 +1323,53 @@ button.secondary:hover { background: var(--bg); }
 .consistency-warnings p { margin: 6px 0 0; }
 
 /* ---------- Per-image refine + retry ---------- */
-.brand-uploads { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.brand-uploads { display: flex; flex-direction: column; gap: 12px; margin: 14px 0 4px; }
 .brand-uploads .brand-rag { margin: 0; }
 
 .image-media.moderation-fail { background: #FBE6E6; }
 
+/* Vertical refine form: textarea takes full width, button on its own row */
 .shot-refine {
   display: flex;
-  gap: 6px;
-  padding: 8px 10px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
 .shot-refine-input {
-  flex: 1;
-  padding: 7px 10px;
-  font-size: 12px;
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  font-family: inherit;
   border: 1px solid var(--border);
-  border-radius: 5px;
-  background: var(--bg);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  resize: vertical;
+  min-height: 48px;
+  line-height: 1.45;
 }
 .shot-refine-input:focus {
   outline: none;
   border-color: var(--emerald);
   background: var(--surface);
-  box-shadow: 0 0 0 2px var(--emerald-light);
+  box-shadow: 0 0 0 3px var(--emerald-light);
 }
+.shot-refine-input::placeholder { color: var(--muted); }
 .shot-refine-send {
-  width: 32px;
-  flex-shrink: 0;
+  align-self: flex-end;
+  padding: 8px 16px;
   background: var(--emerald);
   color: white;
   border: none;
-  border-radius: 5px;
-  font-size: 16px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s;
 }
 .shot-refine-send:hover { background: var(--emerald-dark); }
+.shot-refine-send:disabled { background: var(--muted); cursor: not-allowed; }
 
 .shot-retry {
   padding: 8px 10px;

@@ -19,10 +19,13 @@
       </div>
     </div>
     <nav class="nav">
-      <a href="/" class="active">Run</a>
+      <a href="/" class="active">Console</a>
       <a href="/settings">Settings</a>
     </nav>
-    <div id="config-badge" class="mode-badge unconfigured" title="Loading…">…</div>
+    <a href="/settings" id="config-status" class="status-pill" title="Loading…">
+      <span class="status-dot"></span>
+      <span class="status-text">…</span>
+    </a>
     <button id="new-session-btn" class="secondary new-session-btn" type="button" title="Start a fresh session">＋ New</button>
   </header>
 
@@ -34,12 +37,12 @@
         <h2>1 · Brief</h2>
         <div class="locale-picker">
           <label>
-            <span class="muted small">Voiceover language</span>
+            <span class="muted small" title="Voiceover language and TTS pronunciation. The planner writes the voiceover script in this language and the TTS model reads it accordingly.">Voiceover language</span>
             <select id="locale">
-              <option value="ar-SA" selected>ar-SA — Arabic (Saudi)</option>
-              <option value="ar-AE">ar-AE — Arabic (UAE)</option>
+              <option value="en-US" selected>en-US — English (US)</option>
               <option value="en-SA">en-SA — English (Saudi)</option>
-              <option value="en-US">en-US — English (US)</option>
+              <option value="ar-SA">ar-SA — Arabic (Saudi)</option>
+              <option value="ar-AE">ar-AE — Arabic (UAE)</option>
               <option value="zh-CN">zh-CN — Chinese</option>
             </select>
           </label>
@@ -51,16 +54,19 @@
 
       <!-- Logo upload (composited onto every still) -->
       <div class="brand-rag" id="brand-logo-widget">
+        <div class="upload-label">
+          <span class="upload-label-title">Upload Logo</span>
+          <span class="upload-label-sub">Composited onto every generated still in the bottom-right.</span>
+        </div>
         <div class="brand-rag-row" id="brand-logo-empty">
           <span class="brand-rag-icon">🏷</span>
           <span class="muted small">
-            Upload the brand logo (PNG/JPG/WEBP). It will be composited onto
-            the bottom-right of every generated still — Seedream is told to
-            leave that area empty so the placement is always correct.
+            PNG, JPG or WEBP. Seedream is instructed to leave that corner
+            empty so placement stays exact.
           </span>
           <label class="brand-rag-upload">
             <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp">
-            <span>Upload logo</span>
+            <span>Choose file</span>
           </label>
         </div>
         <div class="brand-rag-row hidden" id="brand-logo-loaded">
@@ -76,16 +82,19 @@
       </div>
 
       <div class="brand-rag" id="brand-rag">
+        <div class="upload-label">
+          <span class="upload-label-title">Customer Brand Manual</span>
+          <span class="upload-label-sub">PDF used as RAG context — palette, modesty rules, sign-off, etc.</span>
+        </div>
         <div class="brand-rag-row" id="brand-rag-empty">
           <span class="brand-rag-icon">📄</span>
           <span class="muted small">
-            Upload the customer's brand manual (PDF) so the planner generates
-            a storyboard that follows their palette, modesty rules, sign-off
-            phrasing, etc.
+            The planner reads this manual when drafting the storyboard, and a
+            second LLM pass flags any rule violations.
           </span>
           <label class="brand-rag-upload">
             <input type="file" id="brand-rag-file" accept="application/pdf,.pdf">
-            <span>Upload PDF</span>
+            <span>Choose PDF</span>
           </label>
         </div>
         <div class="brand-rag-row hidden" id="brand-rag-loaded">
