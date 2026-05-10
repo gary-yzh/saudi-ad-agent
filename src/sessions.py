@@ -548,6 +548,7 @@ def _gen_one_shot(
     *,
     prompt_override: str | None = None,
     extra_metadata: dict | None = None,
+    initial_softening_level: int = 0,
 ) -> None:
     """Generate (or regenerate) a single shot's still image.
 
@@ -602,18 +603,25 @@ def _gen_one_shot(
             if attempt >= MAX_AUTO_RETRIES:
                 break
             try:
+                # Escalate from the caller's level + how many auto-retries we've
+                # done so far. Without this, manual retry's escalation gets
+                # silently undone — the caller hands us a level-3 prompt and
+                # we soften it with attempt=1 (LIGHT), backing off to a
+                # less-softened prompt. Compounding is the only way for
+                # repeated retries to actually escalate.
+                next_level = initial_softening_level + attempt + 1
                 softened = _soften_prompt(
                     current_prompt,
                     stage="image",
                     reason=e.message,
-                    attempt=attempt + 1,
+                    attempt=next_level,
                 )
             except Exception as soft_err:
                 # Softening LLM call itself failed — give up gracefully.
                 last_exc = soft_err
                 break
             softening_history.append({
-                "attempt": attempt + 1,
+                "attempt": next_level,
                 "moderation_code": e.code,
                 "moderation_msg": (e.message or "")[:200],
                 "softened_head": softened[:200],
@@ -641,9 +649,11 @@ def _gen_one_shot(
                 "message": getattr(last_exc, "message", str(last_exc)),
                 "current_prompt": current_prompt,
                 "auto_soften_attempts": softening_history,
-                # Continuity with manual retry — its _soften_prompt picks up
-                # at this level + 1, so we keep getting more aggressive.
-                "retry_softening_level": len(softening_history),
+                # Cumulative level: caller's starting level + auto-retries
+                # we did. Next manual retry's _soften_prompt picks up here
+                # + 1, so consecutive Retry clicks keep escalating without
+                # silently snapping back to LIGHT softening.
+                "retry_softening_level": initial_softening_level + len(softening_history),
             }
         else:
             error_str = str(last_exc) if last_exc else "unknown error"
@@ -670,7 +680,7 @@ def _gen_one_shot(
     metadata["current_prompt"] = current_prompt
     if softening_history:
         metadata["auto_soften_attempts"] = softening_history
-        metadata["retry_softening_level"] = len(softening_history)
+        metadata["retry_softening_level"] = initial_softening_level + len(softening_history)
     if extra_metadata:
         metadata.update(extra_metadata)
 
@@ -1015,6 +1025,12 @@ def retry_shot(*, session_id: str, shot_id: int, executor: ThreadPoolExecutor) -
         shot,
         prompt_override=retry_prompt,
         extra_metadata=extra_md or None,
+        # Tell _gen_one_shot's auto-retry to start AFTER this softening level.
+        # Without this, auto-retry calls _soften_prompt(attempt=1) (LIGHT) on
+        # an already-AGGRESSIVE prompt — silently undoing the escalation that
+        # retry_shot just did. With this, attempts inside _gen_one_shot keep
+        # climbing past softening_level (level+1 → level+2 → ...).
+        initial_softening_level=softening_level if was_moderation else 0,
     )
 
 

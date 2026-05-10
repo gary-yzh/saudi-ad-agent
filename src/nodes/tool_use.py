@@ -11,6 +11,7 @@ neutral substitutes and retry up to MAX_MODERATION_RETRIES times.
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Callable
 
 from ..llm import call_claude
@@ -53,9 +54,68 @@ Return STRICT JSON: {"prompt": "<the rewritten prompt>"}. Output ONLY the JSON.
 """
 
 
+# Cultural markers that Doubao's vision moderation tends to flag, especially
+# when combined with a person. "halo"/"halos" added because Doubao strongly
+# associates them with religious-figure imagery (saints, deities) — a perfume
+# ad's "aroma halos" reads as a religious figure to the model.
+_CULTURAL_MARKERS: tuple[str, ...] = (
+    "abaya", "hijab", "thobe", "mosque", "minaret", "azaan", "iftar",
+    "ramadan", "Saudi mother", "Saudi family", "Saudi woman", "Saudi man",
+    "Muslim", "Islamic", "Eid", "prayer", "Arabic typography", "Arabic copy",
+    "Tajawal", "halo", "halos", "religious",
+)
+
+
+def _strip_cultural_markers(original: str) -> str:
+    """Deterministic strip of culturally / religiously-loaded terms.
+    Used as fallback when LLM softening fails AND as the level-3 tier.
+
+    Uses word-boundary regex so "halo" doesn't half-eat "halos" (and
+    similar plural-form leftovers); also collapses runs of whitespace
+    and stray punctuation left behind so the output reads cleanly."""
+    out = original
+    for term in _CULTURAL_MARKERS:
+        out = re.sub(
+            r"\b" + re.escape(term) + r"\b",
+            "",
+            out,
+            flags=re.IGNORECASE,
+        )
+    # Tidy up: collapse double spaces, kill orphaned " ()" or " ," that
+    # the strip leaves behind (e.g. "wearing crisp white thobe)" → "wearing
+    # crisp white )" → "wearing crisp white" after this step).
+    out = re.sub(r"\(\s*[,;]?\s*\)", "", out)   # empty parens
+    out = re.sub(r"\s+([,.;:!?])", r"\1", out)  # space before punctuation
+    out = re.sub(r"\s{2,}", " ", out).strip()
+    return out or _GENERIC_PRODUCT_PROMPT
+
+
+_GENERIC_PRODUCT_PROMPT = (
+    "A clean modern product shot of the advertised item, soft daylight, "
+    "neutral background, 9:16 vertical aspect ratio, no people, no specific "
+    "cultural or religious markers."
+)
+
+
 def _soften_prompt(original: str, *, stage: str, reason: str, attempt: int) -> str:
-    """Ask the LLM to rewrite a flagged prompt. More aggressive on later attempts.
-    Falls back to a regex strip if the LLM call fails."""
+    """Rewrite a flagged prompt. Four escalation tiers:
+
+      attempt 1 → LIGHT LLM softening (replace cultural markers with neutrals)
+      attempt 2 → AGGRESSIVE LLM softening (drop people, product-only)
+      attempt 3 → Deterministic regex strip of cultural markers (no LLM —
+                  the LLM-based softening has had two passes already and
+                  re-running it produces the same output)
+      attempt 4+→ Hard fallback: generic product-only template, guaranteed
+                  to clear any moderation. Loses creative specificity but
+                  always produces a result.
+
+    Falls back through the tiers if the LLM call itself errors.
+    """
+    if attempt >= 4:
+        return _GENERIC_PRODUCT_PROMPT
+    if attempt >= 3:
+        return _strip_cultural_markers(original)
+
     system = SOFTEN_AGGRESSIVE if attempt >= 2 else SOFTEN_LIGHT
     try:
         result = call_claude(
@@ -74,16 +134,7 @@ def _soften_prompt(original: str, *, stage: str, reason: str, attempt: int) -> s
             return new_prompt
     except Exception as e:
         print(f"[soften_prompt] LLM rewrite failed: {e}", flush=True)
-    # Last-resort regex strip.
-    out = original
-    for term in (
-        "abaya", "hijab", "thobe", "mosque", "minaret", "azaan", "iftar",
-        "ramadan", "Saudi mother", "Saudi family", "Saudi woman", "Saudi man",
-        "Muslim", "Islamic", "Eid", "prayer", "Arabic typography", "Arabic copy",
-        "Tajawal",
-    ):
-        out = out.replace(term, "").replace(term.capitalize(), "")
-    return out.strip() or "A clean modern product shot, neutral lighting, 9:16 vertical."
+    return _strip_cultural_markers(original)
 
 
 def _call_with_moderation_retry(
