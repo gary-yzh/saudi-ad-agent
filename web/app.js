@@ -17,28 +17,28 @@
 // (Objective → Audience → Key Message → Deliverable → Visual → Mandatories),
 // which in turn gives the planner LLM richer context to draft from.
 //
-// Product picked the lowest possible moderation risk profile so first-time
-// users can run the whole pipeline (Seedream + Seedance + TTS) end-to-end
-// without hitting Doubao's culturally-sensitive image / video filters.
-// Prior samples (Ajwa dates / Arabia Roast) still tripped on geo+context
-// edge cases — switched to a generic insulated-bottle product with no
-// geographic, cultural, or human references at all.
-const SAMPLE_BRIEF = `CAMPAIGN: HYDRA Q1 Launch
+// Bateel is a real Saudi premium-dates retailer. Brief is product-led:
+// glossy whole-date close-ups + gold-foiled gift-box reveals, with NO
+// people / cultural settings / religious holidays / flags. That keeps
+// the demo fast (Seedream usually passes first attempt, Seedance almost
+// always passes) while the brand name still carries the Saudi e-commerce
+// flavour the take-home asks for.
+const SAMPLE_BRIEF = `CAMPAIGN: Bateel Premium Dates Q1 Launch
 
 1. OBJECTIVE
-Drive product-page visits and pre-orders for the new HYDRA insulated stainless-steel water bottle.
+Drive product-page visits and gift-box pre-orders for Bateel's premium dates collection.
 
 2. AUDIENCE
-Active urban professionals worldwide, ages 25–40, who care about hydration on the go and prefer reusable bottles over single-use plastic.
+Discerning gift-givers and connoisseurs worldwide, ages 28–55, who appreciate luxury food gifts and fine craftsmanship.
 
 3. KEY MESSAGE
-Cold for 24 hours, hot for 12 — your one bottle for everywhere.
+Hand-picked, single-estate dates — the world's finest, in a gold-foiled gift box.
 
 4. DELIVERABLE
-9:16 vertical short-form video, ≤30 seconds. English voiceover with burn-in English captions. Clean, neutral palette.
+9:16 vertical short-form video, ≤30 seconds. English voiceover with burn-in English captions. Warm cream-and-gold palette.
 
 5. VISUAL DIRECTION
-Product-only studio shots: matte-black bottle on a clean light-grey surface, slow rotation, condensation droplets on a cold pour, the cap mechanism close-up. Soft daylight, minimal modern aesthetic. No people in frame. No specific cultural settings, no flags, no holidays.
+Product-only studio shots: glossy whole dates close-ups, the gold-foiled gift box opening to reveal dates inside, slow dolly across the box, soft natural daylight, neutral cream and gold palette. Focus on product texture, sheen, and packaging quality. No people in frame. No specific cultural settings, no flags, no holidays.
 
 6. MANDATORIES
 Brand logo on the sign-off frame. CTA: "Shop now". Target product-page CTR ≥ 2.5%.`;
@@ -981,6 +981,32 @@ function showVideoPanel(v) {
   }
 }
 
+// Module-level AudioContext for the voiceover gain stage. Web Audio
+// requires a user gesture to leave the "suspended" state, so we create
+// the context lazily and resume it inside the video's play handler.
+// Only one MediaElementSource per element is allowed, so we guard via
+// audioEl._gainAttached to prevent a re-render from re-attaching.
+let _voiceoverAudioCtx = null;
+
+function _attachVoiceoverGain(audioEl) {
+  if (audioEl._gainAttached) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  try {
+    if (!_voiceoverAudioCtx) _voiceoverAudioCtx = new Ctx();
+    const source = _voiceoverAudioCtx.createMediaElementSource(audioEl);
+    const gain = _voiceoverAudioCtx.createGain();
+    // 1.6× — combined with the +30 server-side loudness boost, brings
+    // Doubao TTS output to a comfortable listening level without
+    // distortion. Tuned by ear; keep ≤ 2× to avoid clipping.
+    gain.gain.value = 1.6;
+    source.connect(gain).connect(_voiceoverAudioCtx.destination);
+    audioEl._gainAttached = true;
+  } catch (e) {
+    console.warn("Voiceover gain setup failed (using native volume):", e);
+  }
+}
+
 // Sync the TTS audio element to the video's playback state so the user
 // hears the voiceover alongside the silent Seedance video. Browser-level
 // merge — no server-side ffmpeg required. Video controls are the master;
@@ -1009,12 +1035,21 @@ function wireVoiceoverSync(videoEl, audioEl, audioStatus, meta) {
     audioEl.src = meta.audio_url;
     audioEl.load();
   }
+  // Attach the 1.6× gain on first wire-up. Safe to call on every
+  // wire — _gainAttached flag inside makes it idempotent. Web Audio
+  // disallows two MediaElementSource on the same element.
+  _attachVoiceoverGain(audioEl);
 
   // Bind sync listeners exactly once on this video element
   if (videoEl._voSyncWired) return;
   videoEl._voSyncWired = true;
 
   videoEl.addEventListener("play", () => {
+    // Browser policy: AudioContext is "suspended" until first user
+    // gesture. Resume it here so the gain pipe actually outputs sound.
+    if (_voiceoverAudioCtx?.state === "suspended") {
+      _voiceoverAudioCtx.resume().catch(() => {});
+    }
     audioEl.currentTime = videoEl.currentTime;
     audioEl.play().catch(() => {});
   });

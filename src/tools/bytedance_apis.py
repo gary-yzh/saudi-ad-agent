@@ -377,7 +377,11 @@ def _audio_params() -> dict[str, Any]:
         "format": cfg_get("tts_format", env_var="TTS_FORMAT", default=TTS_FORMAT_DEFAULT),
         "sample_rate": int(cfg_get("tts_sample_rate", default=TTS_SAMPLE_RATE_DEFAULT)),
         "speech_rate": int(cfg_get("tts_speech_rate", default=0)),
-        "loudness_rate": int(cfg_get("tts_loudness_rate", default=0)),
+        # Default loudness bumped from 0 → 30 (out of [-50, 100]) so the
+        # voiceover is audible alongside the video without users having to
+        # manually crank their system volume. Users can still override in
+        # Settings → Voiceover → Advanced delivery → Loudness rate.
+        "loudness_rate": int(cfg_get("tts_loudness_rate", default=30)),
     }
     emotion = cfg_get("tts_emotion", default="")
     if emotion:

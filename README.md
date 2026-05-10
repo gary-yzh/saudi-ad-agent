@@ -143,7 +143,7 @@ python -m uvicorn server:app --host 127.0.0.1 --port 8000
 1. Open <http://127.0.0.1:8000/settings> and paste your three keys (LLM
    + Ark + TTS). The Quick-fill chips set Base URL + Model in one click
    for Qwen / Doubao / OpenAI.
-2. Open <http://127.0.0.1:8000/>, click **Load 'HYDRA bottle' sample**,
+2. Open <http://127.0.0.1:8000/>, click **Load 'Bateel dates' sample**,
    then **Send**.
 3. Wait ~3 s for the storyboard. Click **Confirm and generate stills**.
 4. Wait ~10–15 s for 4–5 stills (parallel). Tick the ones you want.
@@ -187,24 +187,24 @@ required keys configured.
 SESSION 7c4f2a3e9b8d                              Brand-safety  pass
 state: video_done                                 Predicted CTR  3.6%
 
-CAMPAIGN: HYDRA Q1 Launch
+CAMPAIGN: Bateel Premium Dates Q1 Launch
 ─────────────────────────────────────────────────────────────────
-Hook       Cold for 24, hot for 12
+Hook       The world's finest dates
 CTA        Shop now
-Voiceover  HYDRA. Cold for 24 hours, hot for 12 — your one bottle for everywhere.
+Voiceover  Bateel — hand-picked, single-estate dates. The world's finest, in a gold-foiled gift box.
 
 Storyboard (5 shots, 14.5s total)
-  #1  3.0s  Wide hero — matte-black bottle on light-grey surface, slow rotate
-  #2  2.5s  Cap mechanism close-up
-  #3  3.0s  Cold pour — condensation droplets, blue tint
-  #4  3.5s  Hot pour — steam, warm tint
-  #5  2.5s  SIGN-OFF — bottle + brand logo locked bottom-right
+  #1  3.0s  Wide hero — gold-foiled gift box on cream linen, slow rotate
+  #2  2.5s  Macro — glossy whole dates close-up, gentle highlight on the skin
+  #3  3.0s  Box opening — lid lifts to reveal dates arranged inside
+  #4  3.5s  Texture detail — slow dolly across the dates, soft daylight
+  #5  2.5s  SIGN-OFF — closed gift box + brand logo locked bottom-right
 
 Stills (Seedream)
-  #1  succeeded (3.8s)         no softening
-  #2  succeeded (4.1s)         no softening
-  #3  succeeded (3.5s)         no softening
-  #4  succeeded (5.2s)         level-1 LIGHT softening (steam triggered hot category)
+  #1  succeeded (3.4s)         no softening
+  #2  succeeded (3.6s)         no softening
+  #3  succeeded (4.0s)         no softening
+  #4  succeeded (3.8s)         no softening
   #5  succeeded (3.9s)         no softening                  + brand logo composite
 
 Video (Seedance)        succeeded after 4m 12s
