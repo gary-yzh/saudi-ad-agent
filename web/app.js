@@ -121,6 +121,12 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
     ti.value = SAMPLE_BRIEF;
     ti.dispatchEvent(new Event("input"));
     ti.focus();
+    // Scroll the textarea to the TOP so the user reads from "CAMPAIGN:"
+    // not from "9. PRODUCTION". setSelectionRange(0, 0) puts the caret
+    // at the start; scrollTop=0 forces the scroll position even though
+    // focus() defaults to where the caret is.
+    ti.setSelectionRange(0, 0);
+    ti.scrollTop = 0;
   });
 
   // Chat input typing & Enter-to-send (Shift+Enter for newline).
@@ -174,6 +180,8 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
         ti.value = SAMPLE_BRIEF;
         ti.dispatchEvent(new Event("input"));
         ti.focus();
+        ti.setSelectionRange(0, 0);
+        ti.scrollTop = 0;  // start at the top of the long brief
       }
       return;
     }
@@ -478,6 +486,11 @@ async function onSendMessage(e) {
   renderChatMessage("user", text);
   $("chat-input").value = "";
   $("chat-send").disabled = true;
+  // Collapse the textarea to compact size as soon as Send fires —
+  // the user just emptied it; if they want to type a longer follow-up
+  // they can hit the ⤢ expand button at the bottom-right. Keeps the
+  // chat panel from looking like a giant blank box during the wait.
+  setChatInputCompact(true);
 
   // Render a placeholder assistant message we'll replace
   const pendingId = renderChatPending();

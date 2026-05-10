@@ -133,7 +133,9 @@ OR:
 }
 
 Hard rules:
-- Total shot duration must sum to 8-15 seconds.
+- Total shot duration must sum to 8-30 seconds. For most short-form
+  ads, 15-25 seconds is the sweet spot (TikTok / IG Reels / YouTube
+  Shorts benchmark).
 - Voiceover language matches the locale (Arabic for ar-*, English for en-*,
   Chinese for zh-*).
 - No alcohol, no pork, no gambling iconography.
@@ -822,7 +824,16 @@ def _gen_video(session_id: str, selected_ids: list[int]) -> None:
 
     motion_prompt = _build_motion_prompt(storyboard, selected_shots)
     duration = sum(float(s.get("duration_s") or 3.0) for s in selected_shots)
-    duration = max(3, min(15, int(round(duration))))
+    # Total video length, clamped to [3, 30] s.
+    #
+    # Why 30 s upper bound: that's the sweet spot for short-form ads
+    # across TikTok / IG Reels / YouTube Shorts (15-30 s wins CTR; <15 s
+    # is "hook-only" territory; >30 s drops engagement on these
+    # platforms). Doubao Seedance accepts longer values too — bump this
+    # cap if you need 60 s for a YouTube TrueView ad. The CHAT_SYSTEM
+    # planner prompt above asks the LLM to keep storyboards in
+    # 8-30 s range; this clamp is the safety net.
+    duration = max(3, min(30, int(round(duration))))
 
     storage.upsert_video(
         session_id=session_id,

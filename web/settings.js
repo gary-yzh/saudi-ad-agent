@@ -47,13 +47,31 @@ function fillForm(cfg) {
     const v = cfg[el.name];
     if (BOOL_FIELDS.has(el.name)) {
       el.checked = !!v;
-    } else if (v == null) {
-      el.value = "";
+    } else if (v == null || v === "") {
+      // No saved value → fall back to the HTML default. For <select>
+      // that means the option marked `selected` (or the first option
+      // if none is). Setting el.value="" on a select with no empty-
+      // value option would yield selectedIndex=-1 (visually blank).
+      if (el.tagName === "SELECT") {
+        el.selectedIndex = Math.max(0, _firstSelectedIndex(el));
+      } else {
+        el.value = "";
+      }
     } else {
       el.value = String(v);
     }
   });
   refreshStatusBadges();
+}
+
+function _firstSelectedIndex(selectEl) {
+  // Find the option with the [selected] attribute, or fall through
+  // to 0. Lets HTML markup declare the default cleanly with
+  // <option value="X" selected>X</option>.
+  for (let i = 0; i < selectEl.options.length; i++) {
+    if (selectEl.options[i].defaultSelected) return i;
+  }
+  return 0;
 }
 
 function refreshStatusBadges() {
@@ -170,8 +188,14 @@ function showToast(text, kind = "ok") {
   $("clear-btn").addEventListener("click", async () => {
     if (!confirm("Clear all saved settings? You'll need to re-enter the keys.")) return;
     inputs().forEach((el) => {
-      if (BOOL_FIELDS.has(el.name)) el.checked = false;
-      else el.value = "";
+      if (BOOL_FIELDS.has(el.name)) {
+        el.checked = false;
+      } else if (el.tagName === "SELECT") {
+        // Reset selects to their HTML default option, not blank
+        el.selectedIndex = Math.max(0, _firstSelectedIndex(el));
+      } else {
+        el.value = "";
+      }
     });
     refreshStatusBadges();
     try {
