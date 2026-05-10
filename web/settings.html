@@ -12,10 +12,17 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo"></div>
+      <svg class="brand-mark" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-label="Garry Yang">
+        <rect width="40" height="40" rx="9" fill="#0E5C4A"/>
+        <text x="20" y="27" text-anchor="middle"
+              font-family="Inter, system-ui, sans-serif"
+              font-size="16" font-weight="800" letter-spacing="0.5"
+              fill="#FFFFFF">GY</text>
+        <rect x="9" y="32" width="8" height="2.5" rx="1.25" fill="#C9A24A"/>
+      </svg>
       <div>
-        <h1>Saudi Ad Agent</h1>
-        <p class="subtitle">Settings — model & API configuration</p>
+        <h1>E-commerce Ad Generation AI Agent</h1>
+        <p class="subtitle">Settings — model and API configuration</p>
       </div>
     </div>
     <nav class="nav">
@@ -26,8 +33,8 @@
 
   <main class="settings-main">
     <p class="settings-intro muted small">
-      Configure the three providers the agent calls. Saved settings persist
-      between visits and are not exposed on the Console page.
+      Configure the three providers the agent calls. Your settings are saved
+      between visits and are not visible on the Console page.
     </p>
 
     <form id="settings-form" autocomplete="off">
@@ -75,8 +82,8 @@
           <div>
             <h2>Image + Video <span class="muted">· Volcengine Ark · Doubao</span></h2>
             <p class="muted small section-desc">
-              Doubao Seedream renders the still synchronously. Doubao Seedance creates
-              an async video task; we poll every 10 s until it's ready (typically 3–5 min).
+              Doubao Seedream produces each still in a few seconds.
+              Doubao Seedance generates the final video, which typically takes 3 to 5 minutes.
             </p>
           </div>
           <span class="api-status missing" id="ark-status">missing</span>
@@ -143,8 +150,8 @@
           <div>
             <h2>Voiceover <span class="muted">· ByteDance OpenSpeech · Doubao TTS</span></h2>
             <p class="muted small section-desc">
-              The TTS endpoint streams base64 audio chunks; the server collects, decodes
-              and writes the result under <code>outputs/runs/&lt;id&gt;/voice.mp3</code>.
+              The voiceover audio is generated locally and saved with each run so it
+              stays available after the run finishes.
             </p>
           </div>
           <span class="api-status missing" id="tts-status">missing</span>
@@ -210,8 +217,12 @@
     </form>
   </main>
 
-  <footer>
-    Saved locally on this machine. Required keys: LLM, Ark, TTS.
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>© 2026 Garry Yang Co., Ltd. · All rights reserved.</span>
+      <span class="footer-sep">·</span>
+      <span>Operated by Garry Yang Co., Ltd.</span>
+    </div>
   </footer>
 
   <script src="/static/settings.js"></script>

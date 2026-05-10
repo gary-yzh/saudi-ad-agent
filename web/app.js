@@ -7,7 +7,9 @@
 //   video_running      (Seedance call running, polling)
 //   video_done         (local mp4 playable)
 //
-// Session id lives in localStorage so a page reload resumes the same flow.
+// Session id lives in sessionStorage (per-tab) so a page reload resumes the
+// same flow but '+ New session' opens a clean tab without disturbing the
+// original.
 
 const SAMPLE_BRIEF =
   "Promote our premium Ajwa dates collection for the upcoming Ramadan campaign. " +
@@ -17,6 +19,25 @@ const SAMPLE_BRIEF =
 
 const STORE_KEY = "saa.session_id";
 const $ = (id) => document.getElementById(id);
+
+// Per-tab session storage. sessionStorage scopes to a tab, which is exactly
+// what we want so each '+ New session' tab is independent without disturbing
+// the original. One-time migration moves any old localStorage value over so
+// returning users don't lose their in-progress session on the first reload
+// after this change.
+function loadSessionId() {
+  const fromLocal = localStorage.getItem(STORE_KEY);
+  if (fromLocal && !sessionStorage.getItem(STORE_KEY)) {
+    sessionStorage.setItem(STORE_KEY, fromLocal);
+  }
+  // Always clear localStorage — the new contract is per-tab.
+  if (fromLocal) localStorage.removeItem(STORE_KEY);
+  return sessionStorage.getItem(STORE_KEY);
+}
+function saveSessionId(id) {
+  if (id) sessionStorage.setItem(STORE_KEY, id);
+  else sessionStorage.removeItem(STORE_KEY);
+}
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 
@@ -114,14 +135,14 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
 
   refreshConfigBadge().catch((err) => console.warn("config status failed:", err));
 
-  const stored = localStorage.getItem(STORE_KEY);
+  const stored = loadSessionId();
   if (stored) {
     SESSION_ID = stored;
     fetch(`/api/sessions/${SESSION_ID}`)
       .then((r) => (r.ok ? r.json() : Promise.reject("404")))
       .then(restoreView)
       .catch(() => {
-        localStorage.removeItem(STORE_KEY);
+        saveSessionId(null);
         SESSION_ID = null;
       });
   }
@@ -215,29 +236,15 @@ async function ensureSession() {
   });
   const j = await r.json();
   SESSION_ID = j.id;
-  localStorage.setItem(STORE_KEY, SESSION_ID);
+  saveSessionId(SESSION_ID);
   return SESSION_ID;
 }
 
-async function onNewSession() {
-  if (!confirm("Start a fresh session? The current chat / images / video will stay on disk but be hidden.")) return;
-  // Stop any active pollers
-  if (imagePollHandle) { clearInterval(imagePollHandle); imagePollHandle = null; }
-  if (videoPollHandle) { clearInterval(videoPollHandle); videoPollHandle = null; }
-  SESSION_ID = null;
-  localStorage.removeItem(STORE_KEY);
-  // Reset UI
-  $("chat-log").innerHTML = "";
-  $("chat-empty").classList.remove("hidden");
-  $("storyboard-panel").classList.add("hidden");
-  $("images-panel").classList.add("hidden");
-  $("video-panel").classList.add("hidden");
-  $("chat-input").value = "";
-  $("chat-send").disabled = true;
-  $("chat-empty").classList.remove("hidden");
-  showBrandManualEmpty();
-  showBrandLogoEmpty();
-  setStepperFromState("chat");
+// Open a fresh tab. sessionStorage is per-tab, so the new tab starts with
+// nothing in storage and will create its own session on the first chat
+// turn. The current tab is left untouched.
+function onNewSession() {
+  window.open("/", "_blank", "noopener");
 }
 
 // ---------- Restore from server-side state ---------------------------------

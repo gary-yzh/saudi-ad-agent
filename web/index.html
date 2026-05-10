@@ -12,13 +12,21 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo"></div>
+      <svg class="brand-mark" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-label="Garry Yang">
+        <rect width="40" height="40" rx="9" fill="#0E5C4A"/>
+        <text x="20" y="27" text-anchor="middle"
+              font-family="Inter, system-ui, sans-serif"
+              font-size="16" font-weight="800" letter-spacing="0.5"
+              fill="#FFFFFF">GY</text>
+        <rect x="9" y="32" width="8" height="2.5" rx="1.25" fill="#C9A24A"/>
+      </svg>
       <div>
         <h1>E-commerce Ad Generation AI Agent</h1>
         <p class="subtitle">
-          From a single campaign brief to a ready-made short ad, the agent creates a multi-shot
-          storyboard following brand guidelines, generates scene assets, allows shot selection
-          and editing, and outputs a final 9:16 vertical video with professional voiceover.
+          From a single campaign brief to a ready-made short ad, the agent creates a
+          multi-shot storyboard following brand guidelines, generates scene assets,
+          supports shot selection and editing, and outputs a final 9:16 vertical video
+          with a professional voiceover.
         </p>
       </div>
     </div>
@@ -29,7 +37,8 @@
         <span id="config-badge" class="config-mini muted">checking…</span>
       </div>
     </nav>
-    <button id="new-session-btn" class="secondary new-session-btn" type="button" title="Start a fresh session">＋ New session</button>
+    <button id="new-session-btn" class="secondary new-session-btn" type="button"
+            title="Open a fresh session in a new tab — your current work stays open here.">＋ New session</button>
   </header>
 
   <main class="run-main two-col">
@@ -95,8 +104,9 @@
         <div id="chat-empty" class="chat-empty">
           <p class="placeholder-title">Start with a quick brief.</p>
           <p class="placeholder-sub">
-            The agent will ask follow-up questions if it needs more — product, audience,
-            tone, length. When ready, it'll propose a multi-shot storyboard.
+            The agent will ask follow-up questions if it needs more detail — product,
+            audience, tone, or length — and propose a multi-shot storyboard once it
+            has enough to work with.
           </p>
           <div class="chat-empty-controls">
             <label class="empty-locale">
@@ -117,7 +127,7 @@
         <ol id="chat-log" class="chat-log"></ol>
 
         <form id="chat-form" class="chat-form">
-          <textarea id="chat-input" rows="2" placeholder="Type your brief here, or answer the agent's question. Press Enter to send · Shift+Enter for a newline."></textarea>
+          <textarea id="chat-input" rows="2" placeholder="Type your brief, or answer the agent's question. Press Enter to send · Shift+Enter for a new line."></textarea>
           <button type="submit" id="chat-send" disabled>Send</button>
         </form>
       </section>
@@ -235,8 +245,12 @@
     </div><!-- /.run-content -->
   </main>
 
-  <footer>
-    Settings live with you and persist between visits.
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>© 2026 Garry Yang Co., Ltd. · All rights reserved.</span>
+      <span class="footer-sep">·</span>
+      <span>Operated by Garry Yang Co., Ltd.</span>
+    </div>
   </footer>
 
   <script src="/static/app.js"></script>
