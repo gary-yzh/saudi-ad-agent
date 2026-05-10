@@ -26,6 +26,7 @@ let videoPollHandle = null;
 
 // ---------- Boot ------------------------------------------------------------
 (async function init() {
+  setStepperFromState("chat");
   await refreshConfigBadge();
 
   $("load-sample").addEventListener("click", () => {
@@ -36,6 +37,13 @@ let videoPollHandle = null;
 
   $("chat-input").addEventListener("input", () => {
     $("chat-send").disabled = $("chat-input").value.trim().length === 0;
+  });
+  // Enter to send · Shift+Enter for newline
+  $("chat-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      if (!$("chat-send").disabled) $("chat-form").requestSubmit();
+    }
   });
 
   $("chat-form").addEventListener("submit", onSendMessage);
@@ -78,19 +86,52 @@ async function refreshConfigBadge() {
   } catch {
     status = { configured: false, missing: ["?"] };
   }
-  const pill = $("config-status");
-  const text = pill.querySelector(".status-text");
+  const badge = $("config-badge");
   if (status.configured) {
-    text.textContent = "Connected";
-    pill.title = "All API keys configured. Click to review settings.";
-    pill.className = "status-pill ok";
+    badge.textContent = "✓ ready";
+    badge.title = "All Settings keys configured.";
+    badge.className = "config-mini ok";
   } else {
-    const miss = (status.missing || []).map((k) => k.replace(/^openai_/, "llm/")).join(", ");
-    text.textContent = "Configure in Settings →";
-    pill.title = `Missing: ${miss}`;
-    pill.className = "status-pill warn";
+    const n = (status.missing || []).length;
+    badge.textContent = n ? `${n} keys missing` : "needs setup";
+    badge.title = "Open Settings to configure.";
+    badge.className = "config-mini missing";
   }
   return status.configured;
+}
+
+// ---------- Stepper (left rail) --------------------------------------------
+const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
+
+function setStepperFromState(state) {
+  // Map session.state → which step is currently active
+  const stateMap = {
+    chat: "brief",
+    storyboard_draft: "storyboard",
+    storyboard_confirmed: "stills",
+    images_running: "stills",
+    images_done: "stills",
+    video_running: "video",
+    video_done: "video",
+  };
+  const current = stateMap[state] || "brief";
+  const currentIdx = STEP_ORDER.indexOf(current);
+  const allDone = state === "video_done";
+  document.querySelectorAll("#stepper .step").forEach((el) => {
+    const i = STEP_ORDER.indexOf(el.dataset.step);
+    el.classList.remove("step-pending", "step-current", "step-done");
+    if (allDone || i < currentIdx) el.classList.add("step-done");
+    else if (i === currentIdx) el.classList.add("step-current");
+    else el.classList.add("step-pending");
+  });
+}
+
+// Cache-bust helper that respects existing query strings.
+function withCacheBust(url, key) {
+  if (!url) return "";
+  if (key == null) return url;
+  const safe = encodeURIComponent(String(key));
+  return url + (url.includes("?") ? "&" : "?") + "_t=" + safe;
 }
 
 // ---------- Session lifecycle ----------------------------------------------
@@ -122,13 +163,16 @@ async function onNewSession() {
   $("video-panel").classList.add("hidden");
   $("chat-input").value = "";
   $("chat-send").disabled = true;
+  $("chat-empty").classList.remove("hidden");
   showBrandManualEmpty();
   showBrandLogoEmpty();
+  setStepperFromState("chat");
 }
 
 // ---------- Restore from server-side state ---------------------------------
 function restoreView(view) {
   const { session, messages, shot_images, video, brand_manual, brand_logo } = view;
+  setStepperFromState(session.state);
   if (messages.length) $("chat-empty").classList.add("hidden");
 
   // Render last consistency warnings if the most recent assistant message
@@ -207,11 +251,13 @@ async function onSendMessage(e) {
     removeChatPending(pendingId);
     if (reply.action === "ask") {
       renderChatMessage("assistant", reply.question);
+      setStepperFromState("chat");
     } else if (reply.action === "storyboard") {
       const intro = reply.summary || "Here's a draft storyboard.";
       renderChatMessage("assistant", intro, { action: "storyboard" });
       showStoryboard(reply.storyboard, /* enableConfirm */ true);
       showConsistencyWarnings(reply.brand_consistency_warnings || []);
+      setStepperFromState("storyboard_draft");
     }
   } catch (err) {
     removeChatPending(pendingId);
@@ -349,6 +395,7 @@ async function onConfirmStoryboard() {
     const sb = view.session.storyboard;
     showStoryboard(sb, false);
     showImageGrid(sb.shots || [], view.shot_images);
+    setStepperFromState("storyboard_confirmed");
     startImagePolling();
   } catch (err) {
     alert(`Couldn't start image generation: ${err.message || err}`);
@@ -383,7 +430,7 @@ function renderImageCardInner(shot, st) {
   const checked = succeeded ? "checked" : "";
   const disabled = succeeded ? "" : "disabled";
   const media = succeeded
-    ? `<img src="${escapeHtml(st.url)}?t=${st.updated_at || ''}" alt="shot ${shot.id}" referrerpolicy="no-referrer">`
+    ? `<img src="${escapeHtml(withCacheBust(st.url, st.updated_at))}" alt="shot ${shot.id}" referrerpolicy="no-referrer" loading="lazy">`
     : failed
     ? `<div class="image-failed">⚠ ${escapeHtml(st.error || "failed")}</div>`
     : `<div class="image-spinner"><div class="spinner"></div><span>${st.status}…</span></div>`;
@@ -459,6 +506,7 @@ function startImagePolling() {
       if (data.all_done) {
         clearInterval(imagePollHandle);
         imagePollHandle = null;
+        setStepperFromState("images_done");
       }
     } catch (e) {
       console.warn("image poll error", e);
@@ -498,6 +546,7 @@ async function onGenerateVideo() {
     }
     const view = await r.json();
     showVideoPanel(view.video || { status: "queued" });
+    setStepperFromState("video_running");
     startVideoPolling();
   } catch (err) {
     alert(`Couldn't start video gen: ${err.message || err}`);
@@ -548,9 +597,14 @@ function startVideoPolling() {
       const r = await fetch(`/api/sessions/${SESSION_ID}/video`);
       const v = await r.json();
       showVideoPanel(v);
-      if (v.status === "succeeded" || v.status === "failed") {
+      if (v.status === "succeeded") {
         clearInterval(videoPollHandle);
         videoPollHandle = null;
+        setStepperFromState("video_done");
+      } else if (v.status === "failed") {
+        clearInterval(videoPollHandle);
+        videoPollHandle = null;
+        setStepperFromState("images_done");
       }
     } catch (e) {
       console.warn("video poll error", e);

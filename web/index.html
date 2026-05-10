@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Saudi Ad Agent</title>
+  <title>E-commerce Ad Generation AI Agent</title>
   <link rel="stylesheet" href="/static/styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,203 +14,252 @@
     <div class="brand">
       <div class="logo"></div>
       <div>
-        <h1>Saudi Ad Agent</h1>
-        <p class="subtitle">Brief → Storyboard → Stills → Video</p>
+        <h1>E-commerce Ad Generation AI Agent</h1>
+        <p class="subtitle">
+          From a one-line brief to a finished short-form ad — the agent drafts a multi-shot
+          storyboard from your brand guidelines, generates each scene, lets you tweak and pick
+          the shots you want, and renders the final 9:16 vertical video with a matching voiceover.
+        </p>
       </div>
     </div>
     <nav class="nav">
       <a href="/" class="active">Console</a>
-      <a href="/settings">Settings</a>
+      <div class="nav-settings">
+        <a href="/settings">Settings</a>
+        <span id="config-badge" class="config-mini muted">checking…</span>
+      </div>
     </nav>
-    <a href="/settings" id="config-status" class="status-pill" title="Loading…">
-      <span class="status-dot"></span>
-      <span class="status-text">…</span>
-    </a>
-    <button id="new-session-btn" class="secondary new-session-btn" type="button" title="Start a fresh session">＋ New</button>
+    <button id="new-session-btn" class="secondary new-session-btn" type="button" title="Start a fresh session">＋ New session</button>
   </header>
 
-  <main class="run-main">
+  <main class="run-main two-col">
 
-    <!-- ============ Chat panel (always visible) ============ -->
-    <section class="card chat-panel">
-      <header class="panel-head">
-        <h2>1 · Brief</h2>
-        <div class="locale-picker">
-          <label>
-            <span class="muted small" title="Voiceover language and TTS pronunciation. The planner writes the voiceover script in this language and the TTS model reads it accordingly.">Voiceover language</span>
-            <select id="locale">
-              <option value="en-US" selected>en-US — English (US)</option>
-              <option value="en-SA">en-SA — English (Saudi)</option>
-              <option value="ar-SA">ar-SA — Arabic (Saudi)</option>
-              <option value="ar-AE">ar-AE — Arabic (UAE)</option>
-              <option value="zh-CN">zh-CN — Chinese</option>
-            </select>
-          </label>
-        </div>
-      </header>
-
-      <!-- RAG: brand manual PDF + brand logo image -->
-      <div class="brand-uploads">
-
-      <!-- Logo upload (composited onto every still) -->
-      <div class="brand-rag" id="brand-logo-widget">
-        <div class="upload-label">
-          <span class="upload-label-title">Upload Logo</span>
-          <span class="upload-label-sub">Composited onto every generated still in the bottom-right.</span>
-        </div>
-        <div class="brand-rag-row" id="brand-logo-empty">
-          <span class="brand-rag-icon">🏷</span>
-          <span class="muted small">
-            PNG, JPG or WEBP. Seedream is instructed to leave that corner
-            empty so placement stays exact.
+    <!-- ============ LEFT: vertical step nav ============ -->
+    <aside class="stepper" id="stepper" aria-label="Workflow progress">
+      <ol>
+        <li class="step" data-step="brief">
+          <span class="step-marker">1</span>
+          <span class="step-body">
+            <span class="step-title">Brief</span>
+            <span class="step-sub">Describe the ad</span>
           </span>
-          <label class="brand-rag-upload">
-            <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp">
-            <span>Choose file</span>
-          </label>
-        </div>
-        <div class="brand-rag-row hidden" id="brand-logo-loaded">
-          <span class="brand-rag-icon">🏷</span>
-          <span class="brand-rag-meta">
-            <strong id="brand-logo-name">—</strong>
-            <span class="muted small" id="brand-logo-stats">—</span>
+        </li>
+        <li class="step" data-step="storyboard">
+          <span class="step-marker">2</span>
+          <span class="step-body">
+            <span class="step-title">Storyboard</span>
+            <span class="step-sub">Confirm scenes</span>
           </span>
-          <button type="button" id="brand-logo-replace" class="link">Replace</button>
-          <button type="button" id="brand-logo-remove" class="link link-danger">Remove</button>
-        </div>
-        <div class="brand-rag-error hidden" id="brand-logo-error"></div>
-      </div>
-
-      <div class="brand-rag" id="brand-rag">
-        <div class="upload-label">
-          <span class="upload-label-title">Customer Brand Manual</span>
-          <span class="upload-label-sub">PDF used as RAG context — palette, modesty rules, sign-off, etc.</span>
-        </div>
-        <div class="brand-rag-row" id="brand-rag-empty">
-          <span class="brand-rag-icon">📄</span>
-          <span class="muted small">
-            The planner reads this manual when drafting the storyboard, and a
-            second LLM pass flags any rule violations.
+        </li>
+        <li class="step" data-step="stills">
+          <span class="step-marker">3</span>
+          <span class="step-body">
+            <span class="step-title">Stills</span>
+            <span class="step-sub">Pick & refine images</span>
           </span>
-          <label class="brand-rag-upload">
-            <input type="file" id="brand-rag-file" accept="application/pdf,.pdf">
-            <span>Choose PDF</span>
-          </label>
-        </div>
-        <div class="brand-rag-row hidden" id="brand-rag-loaded">
-          <span class="brand-rag-icon">📎</span>
-          <span class="brand-rag-meta">
-            <strong id="brand-rag-name">—</strong>
-            <span class="muted small" id="brand-rag-stats">—</span>
+        </li>
+        <li class="step" data-step="video">
+          <span class="step-marker">4</span>
+          <span class="step-body">
+            <span class="step-title">Video</span>
+            <span class="step-sub">Render & play</span>
           </span>
-          <button type="button" id="brand-rag-replace" class="link">Replace</button>
-          <button type="button" id="brand-rag-remove" class="link link-danger">Remove</button>
-        </div>
-        <div class="brand-rag-row hidden" id="brand-rag-uploading">
-          <span class="brand-rag-icon">⏳</span>
-          <span class="muted small">Parsing PDF…</span>
-        </div>
-        <div class="brand-rag-error hidden" id="brand-rag-error"></div>
-      </div>
-
-      </div><!-- /.brand-uploads -->
-
-      <ol id="chat-log" class="chat-log">
-        <!-- chat bubbles get appended here -->
+        </li>
       </ol>
+    </aside>
 
-      <div id="chat-empty" class="chat-empty">
-        <p class="placeholder-title">Start with a quick brief.</p>
-        <p class="placeholder-sub">
-          The agent will ask follow-up questions if it needs more — product, audience,
-          tone, length. When ready, it'll propose a multi-shot storyboard.
-        </p>
-        <p class="hint">
-          Example: <button type="button" id="load-sample" class="link">"Promote our premium Ajwa dates for Ramadan…"</button>
-        </p>
-      </div>
+    <!-- ============ RIGHT: content (revealed step by step) ============ -->
+    <div class="run-content">
 
-      <form id="chat-form" class="chat-form">
-        <textarea id="chat-input" rows="2" placeholder="Type your brief, or answer a question…" required></textarea>
-        <button type="submit" id="chat-send" disabled>Send</button>
-      </form>
-    </section>
+      <!-- Step 1: Brief / Chat -->
+      <section class="card chat-panel">
+        <header class="panel-head">
+          <h2><span class="step-num">1</span> Brief</h2>
+        </header>
 
-    <!-- ============ Storyboard preview (revealed on draft) ============ -->
-    <section class="card storyboard-panel hidden" id="storyboard-panel">
-      <header class="panel-head">
-        <h2>2 · Storyboard</h2>
-        <span id="sb-stage" class="api-status missing">draft</span>
-      </header>
-
-      <div id="sb-consistency" class="consistency-warnings hidden"></div>
-
-      <div class="sb-meta">
-        <div><span class="sb-label">Hook</span><span id="sb-hook">—</span></div>
-        <div><span class="sb-label">CTA</span><span id="sb-cta">—</span></div>
-        <div><span class="sb-label">Voiceover</span><span id="sb-vo">—</span></div>
-      </div>
-
-      <ol id="sb-shots" class="sb-shots"><!-- shot cards --></ol>
-
-      <div class="panel-actions">
-        <button type="button" id="confirm-storyboard-btn" class="primary">Confirm and generate stills</button>
-        <span class="muted small">— or keep chatting above to refine.</span>
-      </div>
-    </section>
-
-    <!-- ============ Image grid (revealed on confirm) ============ -->
-    <section class="card images-panel hidden" id="images-panel">
-      <header class="panel-head">
-        <h2>3 · Stills (Doubao Seedream)</h2>
-        <span id="images-progress" class="muted small">0 / 0</span>
-      </header>
-
-      <p class="muted small section-desc">
-        Pick the shots you want in the final video, then hit Generate Video.
-        Each still is independent — if one moderation-fails you can still proceed
-        with the rest.
-      </p>
-
-      <ol id="image-grid" class="image-grid"><!-- shot cards with checkboxes --></ol>
-
-      <div class="panel-actions">
-        <button type="button" id="generate-video-btn" class="primary" disabled>Generate video from selection</button>
-        <span id="selection-count" class="muted small">0 selected</span>
-      </div>
-    </section>
-
-    <!-- ============ Video player (revealed on success) ============ -->
-    <section class="card video-panel hidden" id="video-panel">
-      <header class="panel-head">
-        <h2>4 · Final video</h2>
-        <span id="video-stage" class="api-status missing">pending</span>
-      </header>
-
-      <div id="video-loading" class="video-loading hidden">
-        <div class="spinner"></div>
-        <p class="loading-title">Seedance is rendering…</p>
-        <p class="loading-sub">Typically 3–5 minutes; up to 30 on busy days. Don't close the tab.</p>
-      </div>
-
-      <div id="video-ready" class="video-ready hidden">
-        <video id="video-preview" controls preload="metadata"></video>
-        <div class="video-meta">
-          <a id="video-local-url" target="_blank" rel="noopener" class="asset-url">—</a>
-          <span class="muted small" id="video-stats">—</span>
+        <div id="chat-empty" class="chat-empty">
+          <p class="placeholder-title">Start with a quick brief.</p>
+          <p class="placeholder-sub">
+            The agent will ask follow-up questions if it needs more — product, audience,
+            tone, length. When ready, it'll propose a multi-shot storyboard.
+          </p>
+          <div class="chat-empty-controls">
+            <label class="empty-locale">
+              <span class="muted small">Voiceover in</span>
+              <select id="locale">
+                <option value="en-US" selected>English (US)</option>
+                <option value="en-SA">English (Saudi)</option>
+                <option value="ar-SA">Arabic (Saudi)</option>
+                <option value="ar-AE">Arabic (UAE)</option>
+                <option value="zh-CN">Chinese</option>
+              </select>
+            </label>
+            <span class="muted small chat-empty-divider">·</span>
+            <button type="button" id="load-sample" class="link">Load Ajwa dates sample</button>
+          </div>
         </div>
-      </div>
 
-      <div id="video-error" class="video-error hidden">
-        <strong>Generation failed.</strong>
-        <pre id="video-error-msg"></pre>
-      </div>
-    </section>
+        <!-- Brand uploads -->
+        <div class="brand-uploads">
 
+          <div class="brand-rag" id="brand-logo-widget">
+            <div class="upload-label">
+              <span class="upload-label-title">Upload Logo <span class="muted small">(optional)</span></span>
+              <span class="upload-label-sub">Composited onto every still in the bottom-right.</span>
+            </div>
+            <div class="brand-rag-row" id="brand-logo-empty">
+              <span class="brand-rag-icon">🏷</span>
+              <span class="muted small">PNG / JPG / WEBP, ≤ 5 MB.</span>
+              <label class="brand-rag-upload">
+                <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp">
+                <span>Choose file</span>
+              </label>
+            </div>
+            <div class="brand-rag-row hidden" id="brand-logo-loaded">
+              <span class="brand-rag-icon">🏷</span>
+              <span class="brand-rag-meta">
+                <strong id="brand-logo-name">—</strong>
+                <span class="muted small" id="brand-logo-stats">—</span>
+              </span>
+              <button type="button" id="brand-logo-replace" class="link">Replace</button>
+              <button type="button" id="brand-logo-remove" class="link link-danger">Remove</button>
+            </div>
+            <div class="brand-rag-error hidden" id="brand-logo-error"></div>
+          </div>
+
+          <div class="brand-rag" id="brand-rag">
+            <div class="upload-label">
+              <span class="upload-label-title">Customer Brand Manual <span class="muted small">(optional)</span></span>
+              <span class="upload-label-sub">PDF used as the planner's source-of-truth: palette, modesty rules, sign-off, etc.</span>
+            </div>
+            <div class="brand-rag-row" id="brand-rag-empty">
+              <span class="brand-rag-icon">📄</span>
+              <span class="muted small">PDF, text-based (not scanned), ≤ 20 MB.</span>
+              <label class="brand-rag-upload">
+                <input type="file" id="brand-rag-file" accept="application/pdf,.pdf">
+                <span>Choose PDF</span>
+              </label>
+            </div>
+            <div class="brand-rag-row hidden" id="brand-rag-loaded">
+              <span class="brand-rag-icon">📎</span>
+              <span class="brand-rag-meta">
+                <strong id="brand-rag-name">—</strong>
+                <span class="muted small" id="brand-rag-stats">—</span>
+              </span>
+              <button type="button" id="brand-rag-replace" class="link">Replace</button>
+              <button type="button" id="brand-rag-remove" class="link link-danger">Remove</button>
+            </div>
+            <div class="brand-rag-row hidden" id="brand-rag-uploading">
+              <span class="brand-rag-icon">⏳</span>
+              <span class="muted small">Parsing PDF…</span>
+            </div>
+            <div class="brand-rag-error hidden" id="brand-rag-error"></div>
+          </div>
+
+        </div><!-- /.brand-uploads -->
+
+        <ol id="chat-log" class="chat-log"></ol>
+
+        <form id="chat-form" class="chat-form">
+          <textarea id="chat-input" rows="2" placeholder="Type your brief here, or answer the agent's question. Press Enter to send · Shift+Enter for a newline."></textarea>
+          <button type="submit" id="chat-send" disabled>Send</button>
+        </form>
+      </section>
+
+      <!-- Step 2: Storyboard -->
+      <section class="card storyboard-panel hidden" id="storyboard-panel">
+        <header class="panel-head">
+          <h2><span class="step-num">2</span> Storyboard</h2>
+          <span id="sb-stage" class="api-status missing">draft</span>
+        </header>
+        <p class="muted small section-desc">
+          A multi-shot script for the ad. Confirm to generate stills, or keep chatting above
+          to refine.
+        </p>
+
+        <div id="sb-consistency" class="consistency-warnings hidden"></div>
+
+        <div class="sb-meta">
+          <div>
+            <span class="sb-label">Hook
+              <span class="info-tip" data-tip="The opening line — the first ~3 seconds that has to stop the scroll.">?</span>
+            </span>
+            <span id="sb-hook">—</span>
+          </div>
+          <div>
+            <span class="sb-label">CTA
+              <span class="info-tip" data-tip="Call-to-action — what you want the viewer to do next (e.g. 'Shop now', 'Learn more').">?</span>
+            </span>
+            <span id="sb-cta">—</span>
+          </div>
+          <div>
+            <span class="sb-label">Voiceover
+              <span class="info-tip" data-tip="The narration spoken over the ad. Doubao TTS reads this in the language picked when the brief started.">?</span>
+            </span>
+            <span id="sb-vo">—</span>
+          </div>
+        </div>
+
+        <ol id="sb-shots" class="sb-shots"></ol>
+
+        <div class="panel-actions">
+          <button type="button" id="confirm-storyboard-btn" class="primary">Confirm and generate stills</button>
+          <span class="muted small">— or keep chatting above to refine.</span>
+        </div>
+      </section>
+
+      <!-- Step 3: Stills -->
+      <section class="card images-panel hidden" id="images-panel">
+        <header class="panel-head">
+          <h2><span class="step-num">3</span> Stills · Doubao Seedream</h2>
+          <span id="images-progress" class="muted small">0 / 0</span>
+        </header>
+        <p class="muted small section-desc">
+          Each shot is generated independently. Tweak any one with the chat box below it,
+          retry if a shot is rejected by content moderation, then check the boxes for the
+          shots you want in the final video.
+        </p>
+
+        <ol id="image-grid" class="image-grid"></ol>
+
+        <div class="panel-actions">
+          <button type="button" id="generate-video-btn" class="primary" disabled>Generate video from selection</button>
+          <span id="selection-count" class="muted small">0 selected</span>
+        </div>
+      </section>
+
+      <!-- Step 4: Video -->
+      <section class="card video-panel hidden" id="video-panel">
+        <header class="panel-head">
+          <h2><span class="step-num">4</span> Video · Doubao Seedance</h2>
+          <span id="video-stage" class="api-status missing">pending</span>
+        </header>
+
+        <div id="video-loading" class="video-loading hidden">
+          <div class="spinner"></div>
+          <p class="loading-title">Seedance is rendering…</p>
+          <p class="loading-sub">Typically 3–5 minutes; up to 30 on busy days. Don't close the tab.</p>
+        </div>
+
+        <div id="video-ready" class="video-ready hidden">
+          <video id="video-preview" controls preload="metadata"></video>
+          <div class="video-meta">
+            <a id="video-local-url" target="_blank" rel="noopener" class="asset-url">—</a>
+            <span class="muted small" id="video-stats">—</span>
+          </div>
+        </div>
+
+        <div id="video-error" class="video-error hidden">
+          <strong>Generation failed.</strong>
+          <pre id="video-error-msg"></pre>
+        </div>
+      </section>
+
+    </div><!-- /.run-content -->
   </main>
 
   <footer>
-    LangGraph · FastAPI · Live mode · sessions persisted in <code>data/app.db</code>
+    Settings live with you and persist between visits.
   </footer>
 
   <script src="/static/app.js"></script>

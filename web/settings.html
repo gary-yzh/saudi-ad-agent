@@ -19,24 +19,30 @@
       </div>
     </div>
     <nav class="nav">
-      <a href="/">Run</a>
+      <a href="/">Console</a>
       <a href="/settings" class="active">Settings</a>
     </nav>
   </header>
 
   <main class="settings-main">
+    <p class="settings-intro muted small">
+      Configure the three providers the agent calls. Saved settings persist
+      between visits and are not exposed on the Console page.
+    </p>
+
     <form id="settings-form" autocomplete="off">
 
       <!-- LLM section ------------------------------------------------------->
       <section class="card settings-section">
         <header class="settings-head">
-          <h2>1 · LLM <span class="muted">(OpenAI-compatible)</span></h2>
+          <div>
+            <h2>LLM <span class="muted">· OpenAI-compatible</span></h2>
+            <p class="muted small section-desc">
+              Drives the planner, guardrail-judge, eval-judge and prompt-softening retries.
+            </p>
+          </div>
           <span class="api-status missing" id="llm-status">missing</span>
         </header>
-        <p class="muted small section-desc">
-          Drives the Planner, Guardrail-judge, Eval-judge and the prompt-softening retry
-          on safety-filter rejections.
-        </p>
 
         <label class="api-label">
           <span>API Key <em class="req">required</em></span>
@@ -58,21 +64,23 @@
         <p class="api-hint">
           Common base URLs:
           <code>https://dashscope.aliyuncs.com/compatible-mode/v1</code> (Qwen),
-          <code>https://ark.cn-beijing.volces.com/api/v3</code> (Doubao chat),
-          <code>https://api.deepseek.com/v1</code>, <code>https://api.openai.com/v1</code>.
+          <code>https://ark.cn-beijing.volces.com/api/v3</code> (Doubao),
+          <code>https://api.openai.com/v1</code>.
         </p>
       </section>
 
       <!-- Image + Video section --------------------------------------------->
       <section class="card settings-section">
         <header class="settings-head">
-          <h2>2 · Image + Video <span class="muted">(Volcengine Ark · Doubao)</span></h2>
+          <div>
+            <h2>Image + Video <span class="muted">· Volcengine Ark · Doubao</span></h2>
+            <p class="muted small section-desc">
+              Doubao Seedream renders the still synchronously. Doubao Seedance creates
+              an async video task; we poll every 10 s until it's ready (typically 3–5 min).
+            </p>
+          </div>
           <span class="api-status missing" id="ark-status">missing</span>
         </header>
-        <p class="muted small section-desc">
-          Doubao Seedream renders the still synchronously. Doubao Seedance creates an
-          async video task and we poll until it's ready (typically 3-5 min).
-        </p>
 
         <label class="api-label">
           <span>Ark API Key <em class="req">required</em></span>
@@ -104,10 +112,6 @@
             </select>
           </label>
         </div>
-        <label class="api-label inline">
-          <input id="image_watermark" name="image_watermark" type="checkbox">
-          <span>Add image watermark</span>
-        </label>
 
         <div class="api-subhead">Video · Doubao Seedance</div>
         <label class="api-label">
@@ -131,29 +135,20 @@
             <input id="video_duration" name="video_duration" type="number" min="3" max="15" step="1" placeholder="5">
           </label>
         </div>
-        <label class="api-label inline">
-          <input id="video_generate_audio" name="video_generate_audio" type="checkbox">
-          <span>Have Seedance generate background audio</span>
-        </label>
-        <label class="api-label inline">
-          <input id="video_watermark" name="video_watermark" type="checkbox">
-          <span>Add video watermark</span>
-        </label>
-        <p class="api-hint warn">
-          ⚠ Video generation typically takes 1–5 minutes per run and bills per second of output.
-        </p>
       </section>
 
       <!-- TTS section ------------------------------------------------------->
       <section class="card settings-section">
         <header class="settings-head">
-          <h2>3 · Voiceover <span class="muted">(ByteDance OpenSpeech · Doubao TTS)</span></h2>
+          <div>
+            <h2>Voiceover <span class="muted">· ByteDance OpenSpeech · Doubao TTS</span></h2>
+            <p class="muted small section-desc">
+              The TTS endpoint streams base64 audio chunks; the server collects, decodes
+              and writes the result under <code>outputs/runs/&lt;id&gt;/voice.mp3</code>.
+            </p>
+          </div>
           <span class="api-status missing" id="tts-status">missing</span>
         </header>
-        <p class="muted small section-desc">
-          The TTS endpoint streams base64 audio chunks; the server collects, decodes and
-          writes the result under <code>outputs/runs/&lt;id&gt;/voice.&lt;format&gt;</code>.
-        </p>
 
         <label class="api-label">
           <span>TTS API Key <em class="req">required</em></span>
@@ -184,33 +179,6 @@
           <input id="tts_speaker" name="tts_speaker" type="text" placeholder="zh_female_shuangkuaisisi_moon_bigtts">
         </label>
 
-        <div class="api-subhead">Audio output</div>
-        <div class="api-row">
-          <label class="api-label">
-            <span>Format</span>
-            <select id="tts_format" name="tts_format">
-              <option value="">mp3 (default)</option>
-              <option value="mp3">mp3</option>
-              <option value="wav">wav</option>
-              <option value="pcm">pcm</option>
-              <option value="ogg_opus">ogg_opus</option>
-            </select>
-          </label>
-          <label class="api-label">
-            <span>Sample rate</span>
-            <select id="tts_sample_rate" name="tts_sample_rate">
-              <option value="">24000 (default)</option>
-              <option value="8000">8000</option>
-              <option value="16000">16000</option>
-              <option value="22050">22050</option>
-              <option value="24000">24000</option>
-              <option value="32000">32000</option>
-              <option value="44100">44100</option>
-              <option value="48000">48000</option>
-            </select>
-          </label>
-        </div>
-
         <div class="api-subhead">Delivery</div>
         <div class="api-row">
           <label class="api-label">
@@ -232,20 +200,6 @@
             <input id="tts_emotion_scale" name="tts_emotion_scale" type="number" min="1" max="5" step="1" placeholder="4">
           </label>
         </div>
-
-        <details>
-          <summary>Advanced</summary>
-          <div class="api-row">
-            <label class="api-label">
-              <span>Tail silence (ms)</span>
-              <input id="tts_silence_duration" name="tts_silence_duration" type="number" min="0" max="30000" step="50" placeholder="0">
-            </label>
-            <label class="api-label">
-              <span>Explicit language</span>
-              <input id="tts_explicit_language" name="tts_explicit_language" type="text" placeholder="zh-cn / en / ja / es-mx / id / pt-br …">
-            </label>
-          </div>
-        </details>
       </section>
 
       <div class="settings-actions">
@@ -257,7 +211,7 @@
   </main>
 
   <footer>
-    Settings are stored locally in <code>data/app.db</code> (SQLite). Never committed to git.
+    Saved locally on this machine. Required keys: LLM, Ark, TTS.
   </footer>
 
   <script src="/static/settings.js"></script>

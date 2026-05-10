@@ -1398,3 +1398,288 @@ button.secondary:hover { background: var(--bg); }
   text-align: center;
   font-size: 11.5px;
 }
+
+/* ============================================================
+   Header redesign — title + description + nav with mini status
+   ============================================================ */
+
+.topbar {
+  align-items: flex-start;
+  gap: 16px;
+}
+.topbar h1 { font-size: 19px; }
+.topbar .subtitle {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  max-width: 720px;
+}
+
+.nav-settings {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+.nav-settings .config-mini {
+  margin-top: 2px;
+  margin-left: 14px;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+.config-mini.ok { color: var(--success); }
+.config-mini.missing { color: var(--danger); }
+.config-mini.muted { color: var(--muted); }
+
+/* ============================================================
+   Two-column layout: stepper + content
+   ============================================================ */
+
+.two-col {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .two-col { grid-template-columns: 1fr; }
+  .stepper { order: -1; }
+}
+
+.run-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+/* ---------- Stepper (left rail) ---------- */
+.stepper {
+  position: sticky;
+  top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 0;
+  box-shadow: var(--shadow);
+}
+.stepper ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stepper .step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 18px;
+  font-size: 13px;
+}
+.stepper .step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 36px;
+  top: 36px;
+  bottom: -6px;
+  width: 2px;
+  background: var(--border);
+}
+.stepper .step-marker {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1.5px solid var(--border);
+  z-index: 1;
+}
+.stepper .step-body {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.stepper .step-title {
+  font-weight: 600;
+  color: var(--text);
+}
+.stepper .step-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.stepper .step-pending .step-marker { background: var(--bg); color: var(--muted); border-color: var(--border); }
+.stepper .step-pending .step-title { color: var(--muted); font-weight: 500; }
+
+.stepper .step-current .step-marker {
+  background: var(--emerald);
+  color: white;
+  border-color: var(--emerald);
+  box-shadow: 0 0 0 4px var(--emerald-light);
+  animation: pulse-marker 1.6s ease-in-out infinite;
+}
+.stepper .step-current .step-title { color: var(--emerald); }
+
+.stepper .step-done .step-marker {
+  background: var(--success);
+  color: white;
+  border-color: var(--success);
+}
+.stepper .step-done .step-marker::before {
+  content: '✓';
+  font-size: 14px;
+}
+.stepper .step-done .step-marker { color: transparent; }
+.stepper .step-done .step-title { color: var(--text); }
+.stepper .step-done:not(:last-child)::after { background: var(--success); }
+
+@keyframes pulse-marker {
+  50% { box-shadow: 0 0 0 8px var(--emerald-light); }
+}
+
+/* ============================================================
+   Brief panel — empty state with locale chip
+   ============================================================ */
+
+.chat-empty-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.empty-locale {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  margin: 0;
+}
+.empty-locale > span { margin: 0; }
+.empty-locale select {
+  width: auto;
+  padding: 2px 6px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+}
+.empty-locale select:focus { box-shadow: none; }
+.chat-empty-divider { padding: 0 4px; }
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--emerald);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 8px;
+  vertical-align: 1px;
+}
+
+/* ============================================================
+   Storyboard meta — info tooltips
+   ============================================================ */
+
+.info-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 4px;
+  cursor: help;
+  user-select: none;
+  position: relative;
+}
+.info-tip:hover { background: var(--emerald-light); color: var(--emerald); border-color: var(--emerald); }
+.info-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: normal;
+  width: max-content;
+  max-width: 240px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+.info-tip:hover::after { opacity: 1; }
+
+/* ============================================================
+   Image card refine layout: full-width input, button below
+   ============================================================ */
+
+.image-card {
+  display: flex;
+  flex-direction: column;
+}
+.image-card .image-meta { flex: 0 0 auto; }
+.image-card .shot-refine,
+.image-card .shot-retry,
+.image-card .shot-controls-placeholder {
+  margin-top: auto;  /* pin controls to the bottom regardless of meta length */
+}
+
+.shot-refine {
+  flex-direction: column;
+  gap: 8px;
+}
+.shot-refine-input {
+  width: 100%;
+  font-size: 12.5px;
+}
+.shot-refine-send {
+  width: 100%;
+  height: 32px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.shot-refine-send::before { content: '↻ Apply'; }
+
+/* Hide the existing arrow glyph (we render our own label via ::before) */
+.shot-refine-send {
+  font-size: 0;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.shot-refine-send::before {
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+}

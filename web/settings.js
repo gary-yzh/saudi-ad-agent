@@ -10,14 +10,13 @@ const REQUIRED = {
   tts: "tts_api_key",
 };
 
-const BOOL_FIELDS = new Set(["image_watermark", "video_watermark", "video_generate_audio"]);
+// No checkbox fields after the watermark / generate_audio cleanup
+const BOOL_FIELDS = new Set();
 const INT_FIELDS = new Set([
   "video_duration",
-  "tts_sample_rate",
   "tts_speech_rate",
   "tts_loudness_rate",
   "tts_emotion_scale",
-  "tts_silence_duration",
 ]);
 
 const $ = (id) => document.getElementById(id);
