@@ -116,6 +116,23 @@ body {
 .api-status.ready { background: #E0F2E5; color: var(--success); }
 .api-status.missing { background: #FBE6E6; color: var(--danger); }
 
+/* Anchor-jump highlight: when /settings#tts_speaker_row is opened from
+   the voiceover hint on Console, briefly draw attention to the field. */
+.api-label#tts_speaker_row {
+  scroll-margin-top: 80px;
+  border-radius: 6px;
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+.api-label#tts_speaker_row:target {
+  background: var(--emerald-light);
+  box-shadow: 0 0 0 6px var(--emerald-light);
+  animation: anchor-pulse 1.2s ease-out 1;
+}
+@keyframes anchor-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(14, 92, 74, 0.35); }
+  100% { box-shadow: 0 0 0 6px var(--emerald-light); }
+}
+
 /* Section title for upload widgets (Logo / Brand Manual) */
 .upload-label {
   display: flex;
@@ -294,14 +311,14 @@ button[type="submit"]:disabled { background: var(--muted); cursor: wait; }
 @media (max-width: 600px) { .api-row { grid-template-columns: 1fr; } }
 
 .api-subhead {
-  margin: 14px 0 8px;
+  margin: 22px 0 12px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text);
-  border-top: 1px dashed var(--border);
-  padding-top: 12px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
 }
 
 .api-label.inline {
@@ -779,40 +796,60 @@ code {
   box-shadow: 0 1px 3px rgba(20, 30, 25, 0.08);
 }
 
-/* ---------- Settings page ---------- */
+/* ---------- Settings page ----------
+   Apple-style: generous whitespace, refined hierarchy, light dividers.   */
 .settings-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 24px 32px;
-  max-width: 920px;
+  gap: 22px;
+  padding: 36px 32px 48px;
+  max-width: 880px;
   width: 100%;
   margin: 0 auto;
 }
-.settings-section { padding: 22px 24px; }
+.settings-intro {
+  margin: 0 4px 6px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  max-width: 640px;
+}
+.settings-section { padding: 28px 30px; }
 .settings-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   gap: 12px;
 }
 .settings-head h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
-.section-desc { margin: 0 0 16px; }
+.settings-head h2 .muted {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.section-desc {
+  margin: 2px 0 22px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 640px;
+}
 
 .settings-actions {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 0;
+  padding: 18px 0 8px;
   position: sticky;
   bottom: 0;
   background: linear-gradient(to top, var(--bg) 70%, transparent);
+  z-index: 5;
 }
 
 #save-btn {
@@ -1015,16 +1052,47 @@ button.secondary:hover { background: var(--bg); }
 .dots i:nth-child(3) { animation-delay: 0.4s; }
 @keyframes dot { 0%, 80%, 100% { transform: translateY(0); opacity: 0.5; } 40% { transform: translateY(-4px); opacity: 1; } }
 
+/* Centered hero block at the top of the Brief panel — only visible until
+   the user sends their first message. Apple-style: no border, generous
+   whitespace, refined type. */
 .chat-empty {
-  background: var(--bg);
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 12px;
   text-align: center;
+  padding: 36px 24px 28px;
+  margin: 0 auto 8px;
+  max-width: 520px;
 }
-.chat-empty .placeholder-title { margin-bottom: 4px; }
-.chat-empty .placeholder-sub { margin: 0 0 8px; }
+.chat-empty-title {
+  margin: 0 0 8px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.chat-empty-sub {
+  margin: 0 auto 22px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.chat-empty-sample-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.chat-empty-sample-btn:hover {
+  border-color: var(--emerald);
+  color: var(--emerald);
+  background: var(--emerald-light);
+}
 
 .chat-form {
   display: grid;
@@ -1554,7 +1622,7 @@ button.secondary:hover { background: var(--bg); }
    Brief panel — empty state with locale chip
    ============================================================ */
 
-.chat-empty-sample { margin-top: 6px; text-align: center; }
+/* (chat-empty layout above; legacy .chat-empty-sample selector dropped) */
 
 /* Voiceover language — proper labeled config row, not a chip.
    Lives between the empty-state intro and the chat input form. */
@@ -1594,27 +1662,27 @@ button.secondary:hover { background: var(--bg); }
   box-shadow: 0 0 0 3px var(--emerald-light);
 }
 
-/* Read-only voiceover language indicator, sits just above the chat form */
-.voiceover-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 8px;
-  padding: 8px 12px;
-  font-size: 12.5px;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+/* Single-line hint tucked under the chat form. No box, no chrome — just
+   small grey text. Apple-style. */
+.form-hint {
+  margin: 8px 0 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
 }
-.voiceover-info[hidden] { display: none; }
-.voiceover-info-icon { font-size: 14px; }
-.voiceover-info-text strong { font-weight: 600; color: var(--emerald); }
-.voiceover-info a {
+.form-hint[hidden] { display: none; }
+.form-hint strong { font-weight: 600; color: var(--text); }
+.form-hint a {
   color: var(--emerald);
-  text-decoration: underline;
+  text-decoration: none;
+  border-bottom: 1px solid var(--emerald-light);
+  transition: border-color 0.15s, color 0.15s;
 }
-.voiceover-info a:hover { color: var(--emerald-dark); }
+.form-hint a:hover {
+  color: var(--emerald-dark);
+  border-bottom-color: var(--emerald);
+}
 
 .step-num {
   display: inline-flex;
@@ -1841,10 +1909,8 @@ button.secondary:hover { background: var(--bg); }
   border-radius: 5px;
 }
 
-/* Pull the chat-empty intro flush with the chat-form so they read as one block */
 .chat-panel .chat-log:empty { margin: 0; padding: 0; }
-.chat-empty + .chat-log { margin-top: 12px; }
-.chat-empty { margin-bottom: 14px; }
+.chat-empty + .chat-log { margin-top: 4px; }
 
 /* Storyboard actions row — Logo button + Confirm + hint */
 .storyboard-actions {

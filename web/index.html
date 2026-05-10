@@ -22,12 +22,7 @@
       </svg>
       <div>
         <h1>E-commerce Ad Generation AI Agent</h1>
-        <p class="subtitle">
-          From a single campaign brief to a ready-made short ad, the agent creates a
-          multi-shot storyboard following brand guidelines, generates scene assets,
-          supports shot selection and editing, and outputs a final 9:16 vertical video
-          with a professional voiceover.
-        </p>
+        <p class="subtitle">From a brief to a finished short-form ad, in four guided steps.</p>
       </div>
     </div>
     <nav class="nav">
@@ -102,37 +97,32 @@
         <div id="brief-asset-error" class="brief-asset-error hidden"></div>
 
         <div id="chat-empty" class="chat-empty">
-          <p class="placeholder-title">Start with a quick brief.</p>
-          <p class="placeholder-sub">
-            The agent will ask follow-up questions if it needs more detail — product,
-            audience, tone, or length — and propose a multi-shot storyboard once it
-            has enough to work with.
+          <h3 class="chat-empty-title">Start with a quick brief.</h3>
+          <p class="chat-empty-sub">
+            The agent creates a multi-shot storyboard from your brief, generates each scene,
+            lets you tweak and pick the shots you want, and renders the final 9:16 vertical
+            video with a matching voiceover. It will ask follow-up questions if it needs
+            more detail — product, audience, tone, or length.
           </p>
-          <p class="hint chat-empty-sample">
-            Not sure where to start? <button type="button" id="load-sample" class="link">Load &lsquo;Ajwa dates&rsquo; sample</button>
-          </p>
+          <button type="button" id="load-sample" class="chat-empty-sample-btn">
+            Load &lsquo;Ajwa dates&rsquo; sample
+          </button>
         </div>
 
 
         <ol id="chat-log" class="chat-log"></ol>
 
-        <!-- Read-only voiceover language indicator. Auto-derived from the
-             configured TTS speaker so the planner writes the voiceover in a
-             language the speaker can actually pronounce. Change the speaker
-             in Settings to change the voiceover language. -->
-        <div id="voiceover-info" class="voiceover-info" hidden>
-          <span class="voiceover-info-icon">🔊</span>
-          <span class="voiceover-info-text">
-            Voiceover will be in
-            <strong id="voiceover-info-lang">English (US)</strong>
-            <span class="muted small">— matched to your <a href="/settings">TTS speaker</a></span>
-          </span>
-        </div>
-
         <form id="chat-form" class="chat-form">
           <textarea id="chat-input" rows="4" placeholder="Type your brief, or answer the agent's question. Press Enter to send · Shift+Enter for a new line."></textarea>
           <button type="submit" id="chat-send" disabled>Send</button>
         </form>
+        <!-- Tucked-under hint: voiceover language is auto-derived from the
+             configured TTS speaker. Click the link to anchor-jump to that
+             field in Settings. Hidden until we know what the locale is. -->
+        <p id="voiceover-info" class="form-hint" hidden>
+          Voiceover will be in <strong id="voiceover-info-lang">English (US)</strong>
+          — <a href="/settings#tts_speaker_row">change speaker</a>
+        </p>
       </section>
 
       <!-- Step 2: Storyboard -->
