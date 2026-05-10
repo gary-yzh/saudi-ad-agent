@@ -204,6 +204,11 @@ function wireAssetChip({ chipId, inputId, removeId, onPick, onRemove }) {
 }
 
 // ---------- Config status ---------------------------------------------------
+//
+// Apple-style: badge is silent when everything works. Only appears when
+// the user actually needs to do something. A green "✓ ready" tag in
+// steady-state would compete with the Settings link for attention and
+// celebrate something the user shouldn't have to think about.
 async function refreshConfigBadge() {
   let status;
   try {
@@ -212,17 +217,21 @@ async function refreshConfigBadge() {
     status = { configured: false, missing: ["?"] };
   }
   const badge = $("config-badge");
+  if (!badge) return !!status.configured;
   if (status.configured) {
-    badge.textContent = "✓ ready";
-    badge.title = "All Settings keys configured.";
-    badge.className = "config-mini ok";
+    badge.classList.add("hidden");
+    badge.textContent = "";
+    badge.removeAttribute("title");
   } else {
-    const n = (status.missing || []).length;
-    badge.textContent = n ? `${n} keys missing` : "needs setup";
-    badge.title = "Open Settings to configure.";
+    badge.classList.remove("hidden");
+    badge.textContent = "● Setup needed";
+    const missing = status.missing || [];
+    badge.title = missing.length
+      ? `Missing: ${missing.join(", ")}. Click Settings to configure.`
+      : "Click Settings to configure.";
     badge.className = "config-mini missing";
   }
-  return status.configured;
+  return !!status.configured;
 }
 
 // ---------- Stepper (left rail) --------------------------------------------

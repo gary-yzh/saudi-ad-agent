@@ -1046,10 +1046,28 @@ button.secondary:hover {
   margin: 0 auto;
 }
 
-.new-session-btn {
-  margin-left: 10px;
-  padding: 6px 14px;
-  font-size: 12px;
+/* New-session action lives at the bottom of the stepper rail (Apple-style:
+   action next to the rail it replaces; topbar stays pure identity + nav).
+   Styled as a quiet text-link, separated from the steps with a hairline
+   divider — does NOT compete with the active step indicator. */
+.stepper-new-session {
+  display: block;
+  width: calc(100% - 36px);
+  margin: 14px 18px 0;
+  padding: 12px 0 4px;
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.stepper-new-session:hover {
+  color: var(--emerald);
 }
 
 .panel-head {
@@ -1607,16 +1625,18 @@ button.secondary:hover {
   align-items: flex-start;
   line-height: 1.1;
 }
+/* Settings status indicator. Apple-style: silent when steady-state.
+   Only appears (display from .hidden removal) when something needs
+   attention — small red "● Setup needed" below the link. */
 .nav-settings .config-mini {
-  margin-top: 2px;
+  margin-top: 3px;
   margin-left: 14px;
   font-size: 10.5px;
+  font-weight: 600;
   letter-spacing: 0.02em;
   pointer-events: none;
 }
-.config-mini.ok { color: var(--success); }
 .config-mini.missing { color: var(--danger); }
-.config-mini.muted { color: var(--muted); }
 
 /* ============================================================
    Two-column layout: stepper + content
@@ -1786,22 +1806,31 @@ button.secondary:hover {
   box-shadow: 0 0 0 3px var(--emerald-light);
 }
 
-/* "Compose meta" row beneath the chat input. Mirrors Apple Mail's
-   compose pattern — the optional attachment lives next to the input
-   it scopes (not in a header chip far away). Voiceover hint sits on
-   the opposite side, balancing the row visually. */
-.chat-form-meta {
+/* "Context row" ABOVE the chat input. The brand manual is context for
+   the WHOLE brief — read-order: context first, then write. Putting it
+   below the input would imply "supplement after the fact", which
+   misrepresents how the agent uses it. */
+.chat-context-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  margin-top: 10px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
 }
-.chat-form-meta .brief-assets {
+.chat-context-row .brief-assets {
   margin: 0;
   display: flex;
   gap: 8px;
+}
+/* Plain prose hint beside the chip — explains what the field IS and
+   that it's optional. Apple-style: the optionality lives in the
+   description, not on the button label. */
+.chat-context-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* Quieter chip variant for the attach button when it lives below the
