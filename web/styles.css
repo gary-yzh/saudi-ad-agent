@@ -1594,6 +1594,28 @@ button.secondary:hover { background: var(--bg); }
   box-shadow: 0 0 0 3px var(--emerald-light);
 }
 
+/* Read-only voiceover language indicator, sits just above the chat form */
+.voiceover-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.voiceover-info[hidden] { display: none; }
+.voiceover-info-icon { font-size: 14px; }
+.voiceover-info-text strong { font-weight: 600; color: var(--emerald); }
+.voiceover-info a {
+  color: var(--emerald);
+  text-decoration: underline;
+}
+.voiceover-info a:hover { color: var(--emerald-dark); }
+
 .step-num {
   display: inline-flex;
   align-items: center;

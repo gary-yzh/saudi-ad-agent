@@ -113,24 +113,21 @@
           </p>
         </div>
 
-        <!-- Voiceover language — picked before the first chat turn because the
-             planner writes the voiceover script in this language. Styled as a
-             real labeled config row so it's clearly an option, not a chip. -->
-        <div class="brief-config-row" id="brief-config-row">
-          <label for="locale" class="brief-config-label">
-            Voiceover language
-            <span class="info-tip" data-tip="The planner writes the voiceover script in this language and Doubao TTS reads it in the same language. Pick before sending your first message — it's locked once the storyboard is drafted.">?</span>
-          </label>
-          <select id="locale" class="brief-config-select">
-            <option value="en-US" selected>English (US)</option>
-            <option value="en-SA">English (Saudi)</option>
-            <option value="ar-SA">Arabic (Saudi)</option>
-            <option value="ar-AE">Arabic (UAE)</option>
-            <option value="zh-CN">Chinese</option>
-          </select>
-        </div>
 
         <ol id="chat-log" class="chat-log"></ol>
+
+        <!-- Read-only voiceover language indicator. Auto-derived from the
+             configured TTS speaker so the planner writes the voiceover in a
+             language the speaker can actually pronounce. Change the speaker
+             in Settings to change the voiceover language. -->
+        <div id="voiceover-info" class="voiceover-info" hidden>
+          <span class="voiceover-info-icon">🔊</span>
+          <span class="voiceover-info-text">
+            Voiceover will be in
+            <strong id="voiceover-info-lang">English (US)</strong>
+            <span class="muted small">— matched to your <a href="/settings">TTS speaker</a></span>
+          </span>
+        </div>
 
         <form id="chat-form" class="chat-form">
           <textarea id="chat-input" rows="4" placeholder="Type your brief, or answer the agent's question. Press Enter to send · Shift+Enter for a new line."></textarea>

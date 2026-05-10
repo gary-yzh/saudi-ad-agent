@@ -33,7 +33,7 @@ import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -99,8 +99,36 @@ def get_config_status() -> JSONResponse:
 
 
 class CreateSessionRequest(BaseModel):
-    locale: str = "en-SA"
+    # Locale is derived from the saved TTS speaker so the planner writes
+    # voiceover in a language the speaker can actually pronounce.
+    # Clients may still send a value (advanced override), but the server
+    # ignores it unless the speaker is unset.
+    locale: Optional[str] = None
     target_audience: str = "Saudi adults 25-45, parents, urban"
+
+
+# Map a Doubao speaker ID to a sensible IETF locale based on its prefix.
+# Keep this list aligned with the speakers users actually paste into Settings.
+def _locale_from_speaker(speaker: str | None) -> str:
+    if not speaker:
+        return "en-US"
+    s = speaker.lower()
+    if s.startswith(("zh_", "zh-")):
+        return "zh-CN"
+    if s.startswith(("ja_", "ja-")):
+        return "ja-JP"
+    if s.startswith(("ko_", "ko-")):
+        return "ko-KR"
+    if s.startswith(("ar_", "ar-")):
+        return "ar-SA"
+    if s.startswith(("es_", "es-")):
+        return "es-MX"
+    if s.startswith(("pt_", "pt-")):
+        return "pt-BR"
+    if s.startswith(("id_", "id-")):
+        return "id-ID"
+    # en_*, multilingual speakers, or unknown prefix → English (US)
+    return "en-US"
 
 
 class ChatRequest(BaseModel):
@@ -144,8 +172,11 @@ def _session_view(session_id: str) -> dict[str, Any]:
 @app.post("/api/sessions")
 def create_session(req: CreateSessionRequest) -> JSONResponse:
     sid = sessions.new_session_id()
+    cfg = storage.load_config()
+    auto_locale = _locale_from_speaker(cfg.get("tts_speaker"))
+    locale = req.locale or auto_locale  # client override only used if no speaker set
     storage.create_session(
-        session_id=sid, locale=req.locale, target_audience=req.target_audience
+        session_id=sid, locale=locale, target_audience=req.target_audience
     )
     return JSONResponse({"id": sid, **_session_view(sid)})
 

@@ -135,6 +135,9 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
   // ---- Phase 2: async work (fire-and-forget; never blocks listeners) ----
 
   refreshConfigBadge().catch((err) => console.warn("config status failed:", err));
+  // Also derive a preview of the voiceover language from the saved TTS
+  // speaker so the user sees the indicator before they even start chatting.
+  previewVoiceoverLocale().catch(() => {});
 
   const stored = loadSessionId();
   if (stored) {
@@ -240,15 +243,67 @@ function withCacheBust(url, key) {
 // ---------- Session lifecycle ----------------------------------------------
 async function ensureSession() {
   if (SESSION_ID) return SESSION_ID;
+  // Locale is auto-derived server-side from the configured TTS speaker.
   const r = await fetch("/api/sessions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ locale: $("locale").value }),
+    body: JSON.stringify({}),
   });
   const j = await r.json();
   SESSION_ID = j.id;
   saveSessionId(SESSION_ID);
+  // Show the voiceover-info strip with the locale the server picked.
+  if (j.session?.locale) showVoiceoverInfo(j.session.locale);
   return SESSION_ID;
+}
+
+// Pretty-print an IETF locale into the small read-only indicator above the
+// chat form so the user knows what language their voiceover will be in.
+const LOCALE_LABELS = {
+  "en-US": "English (US)",
+  "en-SA": "English (Saudi)",
+  "ar-SA": "Arabic (Saudi)",
+  "ar-AE": "Arabic (UAE)",
+  "zh-CN": "Chinese",
+  "ja-JP": "Japanese",
+  "ko-KR": "Korean",
+  "es-MX": "Spanish",
+  "pt-BR": "Portuguese",
+  "id-ID": "Indonesian",
+};
+function showVoiceoverInfo(locale) {
+  const el = $("voiceover-info");
+  const label = $("voiceover-info-lang");
+  if (!el || !label || !locale) return;
+  label.textContent = LOCALE_LABELS[locale] || locale;
+  el.hidden = false;
+}
+
+// Mirror of backend `_locale_from_speaker` so we can show the voiceover
+// language indicator before the user creates a session.
+function localeFromSpeakerClient(speaker) {
+  if (!speaker) return "en-US";
+  const s = String(speaker).toLowerCase();
+  if (s.startsWith("zh_") || s.startsWith("zh-")) return "zh-CN";
+  if (s.startsWith("ja_") || s.startsWith("ja-")) return "ja-JP";
+  if (s.startsWith("ko_") || s.startsWith("ko-")) return "ko-KR";
+  if (s.startsWith("ar_") || s.startsWith("ar-")) return "ar-SA";
+  if (s.startsWith("es_") || s.startsWith("es-")) return "es-MX";
+  if (s.startsWith("pt_") || s.startsWith("pt-")) return "pt-BR";
+  if (s.startsWith("id_") || s.startsWith("id-")) return "id-ID";
+  return "en-US";
+}
+
+async function previewVoiceoverLocale() {
+  // Don't override a session-bound locale that's already been shown.
+  if (SESSION_ID) return;
+  try {
+    const cfg = await fetch("/api/config").then((r) => r.json());
+    const locale = localeFromSpeakerClient(cfg?.tts_speaker);
+    showVoiceoverInfo(locale);
+  } catch {
+    /* no config yet — skip silently */
+  }
 }
 
 // Open a fresh tab. sessionStorage is per-tab, so the new tab starts with
@@ -262,6 +317,7 @@ function onNewSession() {
 function restoreView(view) {
   const { session, messages, shot_images, video, brand_manual, brand_logo } = view;
   setStepperFromState(session.state);
+  if (session.locale) showVoiceoverInfo(session.locale);
   if (messages.length) $("chat-empty").classList.add("hidden");
 
   // Render last consistency warnings if the most recent assistant message
