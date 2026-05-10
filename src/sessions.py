@@ -418,15 +418,59 @@ def _composite_logo_onto_image(
     }
 
 
-def _gen_one_shot(session_id: str, shot: dict) -> None:
+def _save_still_locally(
+    img_bytes: bytes,
+    *,
+    session_id: str,
+    shot_id: int,
+    logo: dict | None,
+) -> tuple[str, dict]:
+    """Persist a Seedream output (with optional logo overlay) under
+    outputs/runs/<sid>/shots/<id>.jpg and return (display_url, extra_meta).
+
+    Always saves locally — that's how the URL stays valid past Volcengine's
+    24-hour signed-URL expiry. If a logo is configured, it's alpha-composited
+    onto the bottom-right; otherwise we just write the original bytes."""
+    out_path = RUNS_DIR / session_id / "shots" / f"{shot_id}.jpg"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    extra: dict[str, Any] = {}
+    if logo and logo.get("path"):
+        try:
+            comp_meta = _composite_logo_onto_image(
+                img_bytes, Path(logo["path"]), output_path=out_path
+            )
+            extra["composited"] = True
+            extra["composite_meta"] = comp_meta
+        except Exception as e:
+            # Fallback: save the un-composited bytes so the URL is still valid
+            out_path.write_bytes(img_bytes)
+            extra["composited"] = False
+            extra["composite_error"] = str(e)
+    else:
+        out_path.write_bytes(img_bytes)
+        extra["composited"] = False
+
+    display_url = f"/runs/{session_id}/shots/{shot_id}.jpg"
+    return display_url, extra
+
+
+def _gen_one_shot(
+    session_id: str, shot: dict, *, extra_metadata: dict | None = None
+) -> None:
     """Generate (or regenerate) a single shot's still image.
 
-    If the session has an uploaded logo, the visual_prompt is augmented
-    with a "leave a placeholder corner" instruction, the Seedream output
-    is downloaded server-side, the logo is composited, and the local
-    /runs/<sid>/shots/<id>.jpg becomes the display URL. The original
-    Volcengine URL is preserved in metadata.original_url so video gen can
-    still feed it to Seedance (which can't fetch our localhost)."""
+    Behaviour:
+      * Build the prompt — base visual_prompt + optional logo placeholder hint.
+      * Call Seedream → get a Volcengine signed URL.
+      * **Always download** the JPEG and save it under
+        outputs/runs/<sid>/shots/<id>.jpg, optionally compositing the brand
+        logo on top. The local URL is what the UI loads, so it doesn't matter
+        when Volcengine's signature expires (in 24 h).
+      * The original Volcengine URL stays in metadata.original_url so video
+        gen can still feed Seedance a public URL (Volcengine can't fetch our
+        localhost composite).
+    """
     from .tools import bytedance_apis as apis
 
     shot_id = int(shot["id"])
@@ -441,29 +485,31 @@ def _gen_one_shot(session_id: str, shot: dict) -> None:
             apis.seedream_generate, prompt=prompt, aspect="9:16"
         )
         original_url = result["url"]
-        display_url = original_url
         metadata: dict[str, Any] = dict(result)
         metadata["original_url"] = original_url
         metadata["prompt_used"] = prompt[:1500]
+        if extra_metadata:
+            metadata.update(extra_metadata)
 
-        if logo and logo.get("path"):
-            try:
-                with httpx.Client(timeout=60, follow_redirects=True) as client:
-                    img_bytes = client.get(original_url).content
-                out_path = RUNS_DIR / session_id / "shots" / f"{shot_id}.jpg"
-                meta = _composite_logo_onto_image(
-                    img_bytes, Path(logo["path"]), output_path=out_path
-                )
-                display_url = f"/runs/{session_id}/shots/{shot_id}.jpg"
-                metadata["composited"] = True
-                metadata["composite_meta"] = meta
-            except Exception as e:
-                metadata["composite_error"] = str(e)
-                print(
-                    f"[composite shot {shot_id}] failed (non-fatal, falling back "
-                    f"to original URL): {e}",
-                    flush=True,
-                )
+        try:
+            with httpx.Client(timeout=60, follow_redirects=True) as client:
+                img_bytes = client.get(original_url).content
+            display_url, extra = _save_still_locally(
+                img_bytes,
+                session_id=session_id,
+                shot_id=shot_id,
+                logo=logo,
+            )
+            metadata.update(extra)
+        except Exception as e:
+            # Local download/compose failed — keep the UI working with the
+            # remote URL while it's still valid.
+            display_url = original_url
+            metadata["download_error"] = str(e)
+            print(
+                f"[shot {shot_id}] download to local failed (non-fatal): {e}",
+                flush=True,
+            )
 
         storage.update_shot_image(
             session_id,
@@ -473,16 +519,28 @@ def _gen_one_shot(session_id: str, shot: dict) -> None:
             metadata=metadata,
         )
     except apis.ContentModerationError as e:
-        # No softening here — the user can re-prompt or hit Retry.
+        failure_md: dict[str, Any] = {
+            "category": "moderation",
+            "code": e.code,
+            "message": e.message,
+        }
+        if extra_metadata:
+            failure_md.update(extra_metadata)
         storage.update_shot_image(
             session_id,
             shot_id,
             status="failed",
             error=f"{e.code}: {e.message}",
-            metadata={"category": "moderation", "code": e.code, "message": e.message},
+            metadata=failure_md,
         )
     except Exception as e:
-        storage.update_shot_image(session_id, shot_id, status="failed", error=str(e))
+        storage.update_shot_image(
+            session_id,
+            shot_id,
+            status="failed",
+            error=str(e),
+            metadata=extra_metadata or None,
+        )
 
 
 def start_image_generation(session_id: str, executor: ThreadPoolExecutor) -> None:
@@ -701,12 +759,56 @@ def refine_shot(
 
 
 def retry_shot(*, session_id: str, shot_id: int, executor: ThreadPoolExecutor) -> None:
-    """Re-run Seedream for a shot using the original storyboard prompt
-    (used when the previous attempt was rejected by content moderation
-    or failed for any other reason)."""
-    shot = _shot_in_storyboard(session_id, shot_id)
+    """Re-run Seedream for a shot.
+
+    If the prior attempt was rejected by Doubao's content moderation, we
+    don't blindly resubmit the same prompt (it's deterministic and would
+    hit the same wall). Instead we ask the LLM to soften the prompt and
+    advance a `retry_softening_level` counter so each subsequent retry is
+    more aggressive — light replacement on level 1, full humans-stripped
+    product-only on level 2+. If the prior failure was something else
+    (network, etc.) we just retry the original prompt."""
+    from .nodes.tool_use import _soften_prompt  # local import to avoid cycles
+
+    shot = _shot_in_storyboard(session_id, int(shot_id))
+    images = storage.list_shot_images(session_id)
+    prev = next((r for r in images if int(r["shot_id"]) == int(shot_id)), None)
+
+    prev_md: dict[str, Any] = {}
+    if prev and prev.get("metadata_json"):
+        try:
+            prev_md = json.loads(prev["metadata_json"])
+        except json.JSONDecodeError:
+            prev_md = {}
+
+    was_moderation = prev_md.get("category") == "moderation"
+    softening_level = int(prev_md.get("retry_softening_level", 0))
+
+    extra_md: dict[str, Any] = {}
+    retry_shot_dict = shot
+
+    if was_moderation:
+        softening_level += 1
+        try:
+            softened = _soften_prompt(
+                shot.get("visual_prompt", "") or shot.get("scene", ""),
+                stage="image",
+                reason=(prev or {}).get("error") or "previous moderation hit",
+                attempt=softening_level,
+            )
+            retry_shot_dict = {**shot, "visual_prompt": softened}
+            extra_md["retry_softening_level"] = softening_level
+            extra_md["retry_softened_prompt_head"] = softened[:240]
+        except Exception as e:
+            # If softening itself fails (LLM hiccup), fall back to the
+            # original prompt — at least the user gets *some* retry.
+            extra_md["soften_error"] = str(e)
+            extra_md["retry_softening_level"] = softening_level
+
     storage.update_shot_image(session_id, int(shot_id), status="running")
-    executor.submit(_gen_one_shot, session_id, shot)
+    executor.submit(
+        _gen_one_shot, session_id, retry_shot_dict, extra_metadata=extra_md or None
+    )
 
 
 def save_uploaded_brand_logo(
