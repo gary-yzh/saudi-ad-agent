@@ -11,6 +11,10 @@
   --muted: #6B7280;
   --border: #E7E4D9;
   --border-strong: #D5D2C5;
+  /* Apple-style hairline dividers — barely visible, used to separate
+     sections of the same card without "framing" them. */
+  --border-soft: rgba(17, 24, 39, 0.06);
+  --border-soft-strong: rgba(17, 24, 39, 0.08);
   --danger: #B23A3A;
   --success: #2C7A4B;
   --radius: 12px;
@@ -40,9 +44,9 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px 32px;
+  padding: 18px 32px;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-soft);
 }
 .topbar .brand { margin-right: auto; }
 
@@ -177,11 +181,10 @@ body {
   border-radius: var(--radius);
   padding: 28px;
   box-shadow: var(--shadow);
-  transition: box-shadow 0.15s ease;
 }
-.card:hover {
-  box-shadow: var(--shadow-elevated);
-}
+/* Apple-style: cards stay calm at rest. Earlier the panel elevated on
+   any hover, which fired on idle mouse-over and read as fidgety.
+   Elevation now belongs only to truly interactive elements. */
 
 .card h2 {
   margin: 0 0 18px;
@@ -747,12 +750,12 @@ code {
 
 /* ---------- Footer ---------- */
 .site-footer {
-  margin-top: 32px;
-  padding: 22px 32px;
+  margin-top: 40px;
+  padding: 24px 32px;
   font-size: 12px;
   color: var(--muted);
   background: var(--surface);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-soft);
 }
 .footer-inner {
   max-width: 1100px;
@@ -867,14 +870,19 @@ code {
 
 button.secondary {
   padding: 11px 18px;
-  background: var(--surface);
+  background: var(--bg);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 6px;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
-button.secondary:hover { background: var(--bg); }
+button.secondary:hover {
+  background: var(--emerald-light);
+  color: var(--emerald);
+}
 
 .save-toast {
   font-size: 13px;
@@ -950,20 +958,21 @@ button.secondary:hover { background: var(--bg); }
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 0 12px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 14px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 18px;
 }
 .panel-head h2 {
   margin: 0;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 .panel-actions {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 22px;
 }
 
 .primary {
@@ -980,7 +989,7 @@ button.secondary:hover { background: var(--bg); }
 .primary:disabled { background: var(--muted); cursor: not-allowed; }
 
 /* ---------- Chat panel ---------- */
-.chat-panel { padding: 22px 24px; }
+.chat-panel { padding: 24px 28px; }
 
 .locale-picker label { display: flex; align-items: center; gap: 8px; margin: 0; }
 .locale-picker label > span { margin: 0; }
@@ -1057,7 +1066,9 @@ button.secondary:hover { background: var(--bg); }
    whitespace, refined type. */
 .chat-empty {
   text-align: center;
-  padding: 36px 24px 28px;
+  /* Slightly asymmetric — extra top padding so the hero "sits" in the
+     panel rather than crowding the head divider. */
+  padding: 44px 24px 36px;
   margin: 0 auto 8px;
   max-width: 520px;
 }
@@ -1118,12 +1129,12 @@ button.secondary:hover { background: var(--bg); }
 #chat-send:disabled { background: var(--muted); cursor: not-allowed; }
 
 /* ---------- Storyboard panel ---------- */
-.storyboard-panel { padding: 22px 24px; }
+.storyboard-panel { padding: 24px 28px; }
 .sb-meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 8px 18px;
-  margin-bottom: 16px;
+  gap: 10px 24px;
+  margin-bottom: 22px;
   font-size: 13px;
 }
 .sb-meta div { display: flex; flex-direction: column; gap: 2px; }
@@ -1141,13 +1152,13 @@ button.secondary:hover { background: var(--bg); }
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 .sb-shot {
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 14px 16px;
 }
 .sb-shot header {
   display: flex;
@@ -1166,39 +1177,41 @@ button.secondary:hover { background: var(--bg); }
 }
 .sb-shot-dur { font-size: 11px; color: var(--muted); }
 .sb-shot-scene {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
+  color: var(--text);
 }
 .sb-shot-prompt {
   margin: 4px 0 0;
   font-size: 11.5px;
   color: var(--muted);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 /* ---------- Image grid ---------- */
-.images-panel { padding: 22px 24px; }
+.images-panel { padding: 24px 28px; }
 
 .image-grid {
   list-style: none;
-  margin: 14px 0 0;
+  margin: 16px 0 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 .image-card {
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
   overflow: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
 }
+/* Failures need to be visible; success is the default outcome and
+   doesn't need celebrating with a green border on every card. */
 .image-card.image-failed { border-color: var(--danger); }
-.image-card.image-succeeded { border-color: var(--success); }
 
 .image-check {
   position: absolute;
@@ -1253,7 +1266,7 @@ button.secondary:hover { background: var(--bg); }
   gap: 2px;
   font-size: 12px;
   background: var(--surface);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-soft);
 }
 .image-id {
   font-family: 'JetBrains Mono', monospace;
@@ -1263,7 +1276,7 @@ button.secondary:hover { background: var(--bg); }
 .image-scene { color: var(--muted); }
 
 /* ---------- Video panel ---------- */
-.video-panel { padding: 22px 24px; }
+.video-panel { padding: 24px 28px; }
 
 .video-loading { text-align: center; padding: 30px 0; }
 
@@ -1418,7 +1431,7 @@ button.secondary:hover { background: var(--bg); }
   gap: 8px;
   padding: 10px 12px 12px;
   background: var(--surface);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-soft);
 }
 .shot-refine-input {
   width: 100%;
@@ -1446,7 +1459,7 @@ button.secondary:hover { background: var(--bg); }
 .shot-retry {
   padding: 8px 10px;
   background: var(--surface);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-soft);
   text-align: center;
 }
 .shot-retry-btn {
@@ -1466,7 +1479,7 @@ button.secondary:hover { background: var(--bg); }
 .shot-controls-placeholder {
   padding: 8px 10px;
   background: var(--surface);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-soft);
   text-align: center;
   font-size: 11.5px;
 }
@@ -1533,9 +1546,9 @@ button.secondary:hover { background: var(--bg); }
   position: sticky;
   top: 16px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft);
   border-radius: var(--radius);
-  padding: 16px 0;
+  padding: 18px 0;
   box-shadow: var(--shadow);
 }
 .stepper ol {
@@ -1814,7 +1827,7 @@ button.secondary:hover { background: var(--bg); }
   font-weight: 500;
   color: var(--gold);
   cursor: pointer;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-soft);
   transition: background 0.15s, color 0.15s;
 }
 .image-media.image-broken:hover {
