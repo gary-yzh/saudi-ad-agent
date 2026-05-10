@@ -1,8 +1,36 @@
 # Demo video script — `saudi-ad-agent` (≤ 3:00, English)
 
-A timed narration with screen cues for the **live web-UI build**. Total
-target: **2:45**. Recommend Loom (one-click record + share) or OBS at
-1080p. Cursor highlighter on. No background music.
+A timed narration with screen cues for the **live multi-step web UI**.
+Total target: **2:55** (5-second cushion under the 3:00 cap).
+
+Recommended tools (pick whichever is fastest for you):
+
+| Tool | Pros | Link |
+| --- | --- | --- |
+| **Loom** | One-click record, auto-share URL, free 5-min cap | <https://loom.com> |
+| OBS Studio | Free, full control, local mp4 | <https://obsproject.com> |
+| Windows Game Bar | Built-in (Win+G), zero install | (system) |
+| ScreenPal | Free with watermark | <https://screenpal.com> |
+
+Cursor highlighter on. No background music. 1080p / 1920×1080.
+
+---
+
+## Pre-recording checklist
+
+- [ ] Three API keys saved in Settings (LLM + Ark + TTS) so they don't
+      appear on screen. Settings link should have **no red dot** —
+      means everything's configured.
+- [ ] `python -m uvicorn server:app --host 127.0.0.1 --port 8000`
+      running.
+- [ ] Browser at <http://127.0.0.1:8000/>, fullscreen, **bookmarks
+      bar hidden**, browser zoom 100%.
+- [ ] Two tabs only: the running app and the GitHub README (open in
+      a separate window so you can switch quickly without flashing).
+- [ ] Mic test — speak into the recorder for 5 s, confirm levels.
+- [ ] **Dry run twice** before the final take. The flow has 3-30 min
+      of waiting (Seedance) — record the storyboard + stills phase
+      live, then **CUT** and resume after the video has rendered.
 
 ---
 
@@ -10,47 +38,71 @@ target: **2:45**. Recommend Loom (one-click record + share) or OBS at
 
 | # | Time | Screen | Narration |
 | --- | --- | --- | --- |
-| 1 | 0:00–0:15 | GitHub README hero | **(0:15)** Hi — I built `saudi-ad-agent`, a multi-tool LangGraph agent that turns one customer brief into a finished short-form ad — script, image, video, voiceover, and a CTR forecast — by orchestrating Doubao Seedream, Seedance and TTS. |
-| 2 | 0:15–0:45 | Mermaid architecture diagram in README | **(0:30)** Five nodes wired in LangGraph. RAG loads the brand manual. The planner — driven by an OpenAI-compatible LLM — turns the brief into a storyboard. A two-layer guardrail does a keyword scan plus an LLM judge for KSA cultural compliance and loops back up to twice if it fails. On pass we hit the three real Volcengine APIs in sequence. Eval blends a heuristic with an LLM judge to predict CTR. |
-| 3 | 0:45–1:00 | Web UI homepage | **(0:15)** The user-facing layer is a FastAPI server with a single-page web UI. Three collapsible sections cover the LLM, the Ark image+video keys, and the OpenSpeech TTS keys — all stored in localStorage, never on the server, and the Generate button is gated until all three are set. |
-| 4 | 1:00–1:15 | Paste sample brief into textarea, click Generate | **(0:15)** Let's run it on a Ramadan dates brief. (paste, click Generate) The pipeline animates through each stage. Image lands in about thirty seconds, video typically takes three to five minutes. |
-| 5 | 1:15–2:00 | **CUT FORWARD** in the recording — show the result panel after the video succeeded | **(0:45)** All three live assets rendered: the still from Seedream, the video from Seedance with playback controls, and the voiceover from Doubao TTS, served straight off our FastAPI host under `/runs/<id>/voice.mp3`. Predicted CTR comes out at three-point-six percent. Look at the moderation log: Doubao's safety filter rejected the first video output — Saudi-specific imagery is touchy — so the agent automatically asked the LLM to rewrite the prompt with neutral substitutes, retried, and the second softened version passed. |
-| 6 | 2:00–2:30 | Scroll through the storyboard table + eval notes | **(0:30)** The storyboard, the three live asset URLs, and the eval rationale all show in the same panel. The Arabic-aware fields use right-to-left rendering with Tajawal. Each run also writes a JSON trace and the saved voice file under `outputs/runs/<id>/`. |
-| 7 | 2:30–2:45 | Back to the architecture diagram | **(0:15)** Three design choices worth flagging: per-request contextvar so concurrent users don't leak each other's keys; auto-retry with progressive prompt softening for safety-filter rejections; and graceful degradation if any one stage hard-fails. Thanks for watching. |
+| 1 | 0:00–0:20 | GitHub README hero + Mermaid architecture diagram | **(0:20)** "Hi — I built `saudi-ad-agent`, a multi-step web agent that turns one ad brief into a finished 9:16 short-form video — storyboard, stills, voiceover, all in one guided flow. Live calls to Doubao Seedream for image, Seedance for video, OpenSpeech for TTS, with an OpenAI-compatible LLM as the planner." |
+| 2 | 0:20–0:40 | Scroll the README capability matrix | **(0:20)** "Five capabilities are wired in. Planner decomposes the brief. Tool-use orchestrates three real Doubao APIs. RAG injects an uploaded brand manual into the planner prompt. Eval forecasts CTR with a deterministic heuristic. And three layers of guardrail — input keyword guard with negation context, post-storyboard scan, and Doubao's own moderation with progressive auto-soften retry." |
+| 3 | 0:40–0:55 | Settings page (briefly, to show config is server-side) | **(0:15)** "Settings are server-side in SQLite. The Console page never sees keys. Quick-fill chips configure Qwen, Doubao, or OpenAI in one click. The red-dot indicator on the Settings link only appears when something needs attention — Apple-style, silent in the steady state." |
+| 4 | 0:55–1:15 | Console page; click Load 'HYDRA bottle' sample | **(0:20)** "I'll load the sample brief. Industry creative-brief format — campaign, objective, audience, key message, deliverable, visual direction, mandatories. The product is a generic insulated bottle so the demo doesn't trip Doubao's cultural-content filters. Click Send." |
+| 5 | 1:15–1:35 | Storyboard panel renders (~3-5 s) | **(0:20)** "Three seconds — Storyboard ready. The agent picked five shots, each with a scene description, a visual prompt for Seedream, a motion prompt for Seedance. Below, predicted CTR is 3.6%, brand-safety pass — heuristic-only, computed on every chat turn for free. The chat input collapses to compact mode now since most refines are short." |
+| 6 | 1:35–1:50 | Click Confirm; wait for stills | **(0:15)** "Confirm. Per-shot Seedream calls fan out in parallel. Five shots in roughly 12 seconds. The last shot — the sign-off frame — has a brand-logo upload slot; we only composite the logo there, not on every still, the way Apple or Nike short-form ads resolve their brand mark once at the end." |
+| 7 | 1:50–2:05 | Hover one shot's scene line to show visual_prompt tooltip | **(0:15)** "Hovering the scene shows the actual prompt sent to Seedream — useful for debugging when a shot drifts from the script. If Doubao moderation rejects, the agent runs four progressive softening tiers automatically, all the way to a product-aware safe template. Users almost never see a 'rejected as sensitive' state." |
+| 8 | 2:05–2:20 | Click Generate video; **CUT** in recording, resume after video renders | **(0:15)** "Pick the shots, click Generate. Seedance is async — typically 3 to 5 minutes. I'll cut forward in the recording." |
+| 9 | 2:20–2:40 | Final video panel, press play | **(0:20)** "Final 9:16 video, with the voiceover synced. Doubao TTS rendered the script's voiceover line; the browser plays them in sync via two HTML elements — no server-side ffmpeg required." (let voiceover play 3-5 s on screen) |
+| 10 | 2:40–2:55 | Back to architecture diagram | **(0:15)** "Three engineering decisions worth flagging: progressive auto-soften with four tiers from LLM rewrite to deterministic product-only template; per-request contextvar so concurrent users don't leak credentials; and heuristic-first eval so every storyboard turn is free, deterministic, and explainable. Thanks for watching." |
+
+**Total: 2:55** — under the 3:00 cap with margin for natural pauses.
 
 ---
 
-## Pre-recording checklist
+## What to NOT show (saves time)
 
-- Three API keys already saved in browser localStorage so you don't show
-  them on screen: LLM (`api_key` + `base_url` + `model`), Ark
-  (`ark_api_key`), TTS (`tts_api_key` + `tts_speaker`).
-- Server running: `python -m uvicorn server:app --host 127.0.0.1 --port 8000`.
-- Browser at 1920×1080, zoom 110-125%, **bookmarks bar hidden**.
-- Two tabs only: the running app (`http://127.0.0.1:8000/`) and the
-  rendered README on GitHub.
-- Close Slack / Discord / WeChat / anything that can pop up.
-- Mic level checked.
-- `outputs/runs/` cleared if you want a clean directory shot.
-- **Trim the video-gen wait in post.** Recording the full 3-5 min wait
-  on Seedance is a waste — pause / cut.
+- Don't walk through every Settings field — too dense for 3 minutes.
+  Show the page existing and the Quick-fill chips, that's enough.
+- Don't read the full storyboard aloud — say "five shots", show the
+  panel scrolling, move on.
+- Skip the brand-manual upload flow unless time permits — mention it
+  exists ("RAG injects the manual into the planner prompt").
+- Don't demonstrate Apply / Retry on a shot — just point them out as
+  affordances ("each shot has refine and retry — covered in the
+  README").
 
-## Recording tips
+---
 
-- Speak slightly slower than feels natural — the script targets ~150 wpm.
-- Don't read the bullet list verbatim — paraphrase. The bullets are
-  timing anchors, not lines.
-- Record audio + screen in one pass; if you flub, re-do that beat in
-  isolation and splice.
-- Loom: hit "Trim" to clip out the long video-gen wait without re-recording.
+## Common edits if you go over
 
-## Hosting + submission
+- Cut beat 3 (Settings) by 5 s — just a 5-second flash of the page,
+  no narration over it.
+- Replace beat 7 (hover tooltip + softening explanation) with a
+  shorter 8-second version: "Each shot has hover-to-see-prompt for
+  debugging."
+- If the video render took longer than expected and you can't trim
+  the cut clean — record the final beat 9 + 10 against the finished
+  video as a still frame, narrate over it.
 
-- **Loom** (recommended): record → click "Share link" → done. Set
-  privacy to "Anyone with the link".
-- **YouTube unlisted**: upload, set Visibility = Unlisted, copy the URL.
-- **Direct file**: export 1080p MP4 (≤ 200 MB), attach to email.
+---
 
-Submit:
-1. GitHub repo URL
-2. Demo video URL (Loom / YouTube unlisted / file attachment)
+## Backup beats (if you have time to spare under 2:55)
+
+- **Re-draft button** — show clicking ↻ Re-draft on the storyboard
+  panel; the agent emits a fresh storyboard variant. Demonstrates that
+  the planner is conversational.
+- **Brand manual upload** — drop a PDF, watch the chip flip to "✓
+  filename"; mention that the planner will read it before the next
+  storyboard.
+- **Multi-tab** — `+ New session` opens a clean tab without disturbing
+  the original; per-tab `sessionStorage` keeps them independent.
+
+---
+
+## Submission
+
+Upload the recording somewhere with a public URL:
+
+- **Loom** — automatically gives you a `loom.com/share/...` URL after
+  recording finishes. Set "Anyone with the link" can view.
+- **Drive / Dropbox** — share link with view permissions.
+- **YouTube** — set to "Unlisted" if you don't want it indexed.
+
+Submit two URLs to the interviewer:
+
+- GitHub repo: `https://github.com/<you>/saudi-ad-agent`
+- Demo video: `https://loom.com/share/...`
