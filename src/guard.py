@@ -80,16 +80,63 @@ class UserInputViolation(ValueError):
         super().__init__(f"Content guard rejected the input: {head}")
 
 
+# Negation context detection. If a sensitive term is preceded (within ~80
+# chars) by a negation word, the user's intent is to EXCLUDE that content,
+# not request it — e.g. "No intimate physical contact" or "shall not show
+# their hair" or "avoid romantic scenes". Without this check the guard
+# wholesale rejects legitimate constraint declarations from users trying
+# to make their brief safer.
+EN_NEGATION_TOKENS: frozenset[str] = frozenset({
+    # core negators
+    "no", "not", "never", "neither", "nor", "without", "sans",
+    # directive negation
+    "avoid", "avoids", "avoided", "avoiding",
+    "exclude", "excludes", "excluded", "excluding",
+    "prevent", "prevents", "prevented", "preventing",
+    "ban", "bans", "banned", "banning",
+    "forbid", "forbids", "forbidden", "forbidding",
+    "lacking", "devoid",
+    # negative contractions
+    "cannot", "can't", "won't", "shouldn't", "couldn't", "wouldn't",
+    "doesn't", "don't", "didn't", "isn't", "aren't", "wasn't", "weren't",
+    "mustn't", "needn't",
+})
+
+AR_NEGATION_TOKENS: tuple[str, ...] = (
+    "لا", "بدون", "تجنب", "ليس", "يمنع", "ممنوع",
+)
+
+
+def _is_negated_before(text: str, hit_start: int, window: int = 80) -> bool:
+    """English: any negation token within `window` chars before hit_start?"""
+    chunk = text[max(0, hit_start - window):hit_start].lower()
+    tokens = re.findall(r"[a-z']+", chunk)
+    return any(t in EN_NEGATION_TOKENS for t in tokens)
+
+
+def _is_negated_before_ar(text: str, hit_start: int, window: int = 80) -> bool:
+    """Arabic: substring scan for common negators within window before hit_start."""
+    chunk = text[max(0, hit_start - window):hit_start]
+    return any(neg in chunk for neg in AR_NEGATION_TOKENS)
+
+
 def _scan(text: str, patterns: tuple[str, ...], *, regex: bool) -> list[str]:
     hits: list[str] = []
     for p in patterns:
         if regex:
-            m = re.search(p, text, re.IGNORECASE)
-            if m:
+            for m in re.finditer(p, text, re.IGNORECASE):
+                if _is_negated_before(text, m.start()):
+                    continue
                 hits.append(m.group(0))
         else:
-            if p in text:
-                hits.append(p)
+            start = 0
+            while True:
+                idx = text.find(p, start)
+                if idx == -1:
+                    break
+                if not _is_negated_before_ar(text, idx):
+                    hits.append(p)
+                start = idx + len(p)
     return hits
 
 
