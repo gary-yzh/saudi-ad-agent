@@ -11,23 +11,35 @@
 // same flow but '+ New session' opens a clean tab without disturbing the
 // original.
 
-// Sample brief, sectioned. Picks a low-moderation-risk product (premium
-// coffee, packaging-focused, no people in frame) so first-time users can
-// run the whole pipeline end-to-end without hitting Doubao's culturally-
-// sensitive image / video moderation. The four-section layout doubles as
-// an implicit template — users replacing it with their own brief get a
-// suggested structure (product+audience / specs / visuals / objective).
-const SAMPLE_BRIEF = `1. Product & Target Audience
-Promote our "Arabia Roast" premium single-origin coffee bean collection — medium roast, hand-picked, foil-sealed bag — for working professionals across the GCC, ages 25–45.
+// Sample brief — formatted as a real industry creative brief (campaign
+// header + 6 numbered sections). Doubles as an implicit template: a user
+// replacing it with their own brief sees the standard ad-agency structure
+// (Objective → Audience → Key Message → Deliverable → Visual → Mandatories),
+// which in turn gives the planner LLM richer context to draft from.
+//
+// Product picked low-moderation-risk on purpose (premium coffee, packaging-
+// focused, no people in frame) so first-time users can run the whole
+// pipeline end-to-end without tripping Doubao's culturally-sensitive image /
+// video filters.
+const SAMPLE_BRIEF = `CAMPAIGN: Arabia Roast Q1 Launch
 
-2. Video Specifications
-Single 9:16 short-form video, ≤15 seconds, English voiceover.
+1. OBJECTIVE
+Drive product-page visits and pre-orders for the new "Arabia Roast" single-origin medium-roast coffee bean collection.
 
-3. Visual Requirements
-Focus on the product packaging and brewing close-ups; no people in frame, no specific cultural settings.
+2. AUDIENCE
+Working professionals across the GCC, ages 25–45. Coffee-aware, appreciate craft, treat the morning ritual as a daily indulgence.
 
-4. Marketing Objective
-Drive product page visits.`;
+3. KEY MESSAGE
+Specialty coffee, hand-picked at origin — your daily ritual, redefined.
+
+4. DELIVERABLE
+9:16 vertical short-form video, ≤15 seconds. English voiceover with burn-in English captions, warm-tone palette.
+
+5. VISUAL DIRECTION
+Product-led: foil bag hero shots, brewing close-ups (pour, crema, rising steam). Soft daylight, warm palette. No people in frame. No specific cultural settings.
+
+6. MANDATORIES
+Brand logo on the sign-off frame. CTA: "Shop now". Target product-page CTR ≥ 2.5%.`;
 
 const STORE_KEY = "saa.session_id";
 const $ = (id) => document.getElementById(id);
@@ -189,7 +201,11 @@ function autosizeChatInput() {
   const ti = $("chat-input");
   if (!ti) return;
   ti.style.height = "auto";
-  const cap = 320; // px
+  // Cap raised from 320 → 480 so the full sample brief (6 sections,
+  // ~18 lines) fits without an inner scrollbar on first load. If the
+  // user keeps typing past 480 px the textarea scrolls — same as
+  // Apple Mail's compose body.
+  const cap = 480;
   ti.style.height = Math.min(ti.scrollHeight, cap) + "px";
 }
 
