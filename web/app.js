@@ -11,45 +11,64 @@
 // same flow but '+ New session' opens a clean tab without disturbing the
 // original.
 
-// Sample brief — full industry creative brief in the format a real
-// agency planner would send. 9 numbered sections cover objectives,
-// multi-tier audience, single-minded key message, multi-format
-// deliverables, visual direction, tone, mandatories, platforms,
-// production placeholders. Doubles as an implicit template — users
-// replacing it with their own brief get the standard ad-agency
-// structure for free, and the planner LLM gets richer context.
+// Sample brief — six numbered sections, structured the way a real
+// agency planner would write but compressed to what the LLM can
+// actually use:
+//   1. OBJECTIVE & AUDIENCE   (merged — LLM needs goal + persona, not KPI numbers)
+//   2. KEY MESSAGE            (drives voiceover verbatim)
+//   3. DELIVERABLE            (hero spec only — cut-downs are out of scope)
+//   4. VISUAL DIRECTION       (3-act sequence — the section LLM uses most)
+//   5. TONE                   (drives copy style)
+//   6. MANDATORIES            (CTA + banned/required phrases + music)
+//
+// Dropped vs. a full 9-section brief: PLATFORMS (system outputs one
+// 9:16 hero, platform list is media-buying not creative) and
+// PRODUCTION (timeline / budget / usage rights — project management,
+// not LLM input).
 //
 // Bateel is a real KSA premium-dates retailer. Visual direction stays
-// "hand-only, no faces" + "subtle heritage cue, not costume" so the
-// production stays product-led and Doubao moderation passes fast.
+// "hand-only, no faces" + "subtle heritage cues, no flags / thobes /
+// Ramadan iconography" so production stays product-led and Doubao
+// moderation passes fast.
 const SAMPLE_BRIEF = `CAMPAIGN: Bateel Premium Dates – Q3 Gifting Launch
 
-1. OBJECTIVE
-Primary: Pre-orders of Signature Gift Collection (target ROAS ≥ X)
-Secondary: PDP CTR ≥ 2.5%, VTR ≥ 25%
-
-2. AUDIENCE
+1. OBJECTIVE & AUDIENCE
+Drive pre-orders for the Signature Gift Collection.
 GCC HNW gifters, 30–55, gifting for Eid / weddings / corporate
 occasions, AOV $150+.
 
-3. KEY MESSAGE (pick ONE)
+2. KEY MESSAGE
 "Each date, hand-picked like a jewel." — heritage + craftsmanship.
 
-4. DELIVERABLE
-Hero 9:16 ≤25s, EN VO + open captions
-Cut-downs: 15s / 6s bumper / 3 static KVs / Stories pack
-Languages: EN master (recommend adding AR captions for GCC resonance)
+3. DELIVERABLE
+Hero 9:16, ≤25 s, English voiceover with burn-in English captions.
 
-5. VISUAL DIRECTION
-One "ritual of gifting" sequence: hand selecting date in grove →
-   boxing → box opening at a guest's table (hand-only, no faces).
-Palette: cream, gold, deep date-brown.
-Subtle heritage cue (e.g., dallah in bokeh) — feature, not costume.
+4. VISUAL DIRECTION
+Concept: "From grove to gift" — 25 s ritual in 3 acts.
+Hand-only, no faces, no actors.
 
-6. TONE
+Act 1 (0–7 s): Golden-hour grove silhouette → macro of a refined
+   hand selecting one date. Slow-mo 60 fps on the pluck.
+
+Act 2 (7–17 s): Studio overhead, dates placed one-by-one into the
+   gold-foiled box. 3 macro inserts: date sheen, foil refraction,
+   hinge click.
+
+Act 3 (17–25 s): Box opens on a host's table. Host's hand offers
+   one date; a guest's hand reaches in to receive — exchange held
+   in slow-mo. Background: dallah + porcelain finjan, bokeh.
+
+Camera: 35 mm grove / 100 mm macro. 24 fps master, 60 fps heroes.
+Lighting: warm natural + gold bounce.
+Palette: cream, gold, deep date-brown — no whites, no cool tones.
+Heritage cues (subtle): dallah, finjan, handwoven linen.
+NO flags, NO thobes, NO Ramadan iconography.
+Reference: Hermès craftsmanship films, not Godiva holiday spots.
+
+5. TONE
 Refined, understated, sensory. No superlatives, no urgency.
 
-7. MANDATORIES
+6. MANDATORIES
 - CTA: "Reserve the collection"
 - Avoid "world's finest"; use "renowned expert in premium dates"
 - Music: oud-led ambient (no stock orchestral)
@@ -114,10 +133,12 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
     ti.value = SAMPLE_BRIEF;
     ti.dispatchEvent(new Event("input"));
     ti.focus();
-    // Scroll the textarea to the TOP so the user reads from "CAMPAIGN:"
-    // not from "9. PRODUCTION". setSelectionRange(0, 0) puts the caret
-    // at the start; scrollTop=0 forces the scroll position even though
-    // focus() defaults to where the caret is.
+    // Scroll the textarea to the TOP so the user reads from the
+    // "CAMPAIGN:" line, not from the bottom of the brief.
+    // setSelectionRange(0, 0) puts the caret at the start;
+    // scrollTop = 0 forces the visual scroll position (focus() alone
+    // defaults to where the caret is, which Chrome interprets as bottom
+    // for a fresh-set value).
     ti.setSelectionRange(0, 0);
     ti.scrollTop = 0;
   });
