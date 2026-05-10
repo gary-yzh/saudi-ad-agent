@@ -1356,20 +1356,9 @@ button.secondary:hover { background: var(--bg); }
   box-shadow: 0 0 0 3px var(--emerald-light);
 }
 .shot-refine-input::placeholder { color: var(--muted); }
-.shot-refine-send {
-  align-self: flex-end;
-  padding: 8px 16px;
-  background: var(--emerald);
-  color: white;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.shot-refine-send:hover { background: var(--emerald-dark); }
-.shot-refine-send:disabled { background: var(--muted); cursor: not-allowed; }
+/* .shot-refine-send rules live near the end of this file (alongside the
+   broken-image fallback). Earlier draft rules removed to avoid two
+   competing definitions. */
 
 .shot-retry {
   padding: 8px 10px;
@@ -1660,29 +1649,70 @@ button.secondary:hover { background: var(--bg); }
 .shot-refine {
   flex-direction: column;
   gap: 8px;
+  padding: 10px;
 }
 .shot-refine-input {
   width: 100%;
+  height: 34px;
+  padding: 6px 10px;
   font-size: 12.5px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  box-sizing: border-box;
+}
+.shot-refine-input:focus {
+  outline: none;
+  border-color: var(--emerald);
+  background: var(--surface);
+  box-shadow: 0 0 0 2px var(--emerald-light);
 }
 .shot-refine-send {
   width: 100%;
   height: 32px;
+  padding: 0;
+  background: var(--emerald);
+  color: white;
+  border: none;
+  border-radius: 5px;
   font-size: 12.5px;
-  font-weight: 500;
-}
-.shot-refine-send::before { content: '↻ Apply'; }
-
-/* Hide the existing arrow glyph (we render our own label via ::before) */
-.shot-refine-send {
-  font-size: 0;
-  line-height: 1;
-  letter-spacing: 0;
-}
-.shot-refine-send::before {
-  font-size: 12.5px;
+  font-weight: 600;
   letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.15s;
 }
+.shot-refine-send:hover { background: var(--emerald-dark); }
+
+/* Broken-image fallback — Volcengine signed URLs from old sessions can
+   404 once they expire; img.onerror flips this class on. Collapse the
+   tall 9:16 placeholder into a clean clickable strip that re-runs
+   Seedream for this shot. */
+.image-media.image-broken {
+  aspect-ratio: auto;
+  min-height: 60px;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gold);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s, color 0.15s;
+}
+.image-media.image-broken:hover {
+  background: #FFF8E5;
+  color: #8A6A1F;
+}
+.image-media.image-broken::before {
+  content: '↻ Image expired — click to regenerate';
+  display: block;
+}
+.image-media.image-broken img { display: none; }
 
 /* ============================================================
    Brief panel — asset chips + tighter intro→form flow

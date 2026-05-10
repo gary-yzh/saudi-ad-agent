@@ -65,6 +65,7 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
   // Forms / panel buttons.
   $("chat-form").addEventListener("submit", onSendMessage);
   $("confirm-storyboard-btn").addEventListener("click", onConfirmStoryboard);
+  $("redraft-storyboard-btn").addEventListener("click", onRedraftStoryboard);
   $("generate-video-btn").addEventListener("click", onGenerateVideo);
   $("new-session-btn").addEventListener("click", onNewSession);
 
@@ -86,16 +87,26 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
   });
 
   // Defensive document-level fallback for the sample button — if anything
-  // above ever throws, this still works.
+  // above ever throws, this still works. Also handles the click on a
+  // broken-image area (img.onerror flips .image-broken on; the whole strip
+  // is clickable for one-click regenerate).
   document.addEventListener("click", (e) => {
     const t = e.target instanceof Element ? e.target : null;
-    if (t && (t.id === "load-sample" || t.closest("#load-sample"))) {
+    if (!t) return;
+    if (t.id === "load-sample" || t.closest("#load-sample")) {
       const ti = $("chat-input");
       if (ti && !ti.value) {
         ti.value = SAMPLE_BRIEF;
         ti.dispatchEvent(new Event("input"));
         ti.focus();
       }
+      return;
+    }
+    const brokenMedia = t.closest(".image-media.image-broken");
+    if (brokenMedia) {
+      const card = brokenMedia.closest(".image-card");
+      const shotId = Number(card?.dataset.shotId);
+      if (shotId) triggerShotRetry(shotId, null);
     }
   });
 
@@ -454,6 +465,22 @@ function showStoryboard(sb, enableConfirm, opts = {}) {
   }
 }
 
+// ---------- Re-draft storyboard --------------------------------------------
+//
+// One-click: replays a fixed redraft request through the chat path, so the
+// LLM gets it as a normal user turn (history-aware) and the existing
+// chat_turn / showStoryboard / consistency-check pipeline kicks in.
+async function onRedraftStoryboard() {
+  if (!SESSION_ID) return;
+  const ti = $("chat-input");
+  ti.value =
+    "Please draft a different storyboard from the same brief — vary the " +
+    "hook angle, scene composition or pacing while keeping the brand " +
+    "constraints. Same shot count is fine.";
+  ti.dispatchEvent(new Event("input"));
+  $("chat-form").requestSubmit();
+}
+
 // ---------- Confirm + image gen --------------------------------------------
 async function onConfirmStoryboard() {
   if (!SESSION_ID) return;
@@ -504,7 +531,7 @@ function renderImageCardInner(shot, st) {
   const checked = succeeded ? "checked" : "";
   const disabled = succeeded ? "" : "disabled";
   const media = succeeded
-    ? `<img src="${escapeHtml(withCacheBust(st.url, st.updated_at))}" alt="shot ${shot.id}" referrerpolicy="no-referrer" loading="lazy">`
+    ? `<img src="${escapeHtml(withCacheBust(st.url, st.updated_at))}" alt="shot ${shot.id}" referrerpolicy="no-referrer" loading="lazy" onerror="this.closest('.image-media').classList.add('image-broken'); this.remove();">`
     : failed
     ? `<div class="image-failed">⚠ ${escapeHtml(st.error || "failed")}</div>`
     : `<div class="image-spinner"><div class="spinner"></div><span>${st.status}…</span></div>`;
@@ -514,8 +541,8 @@ function renderImageCardInner(shot, st) {
   // Per-image controls: refine box (when ok), retry button (when failed)
   const controls = succeeded
     ? `<form class="shot-refine" data-shot-id="${shot.id}">` +
-      `<textarea class="shot-refine-input" rows="2" placeholder="Tweak this shot — e.g. 'darker background, no people, replace cup with a book'" maxlength="500"></textarea>` +
-      `<button type="submit" class="shot-refine-send">↻ Update shot</button>` +
+      `<input type="text" class="shot-refine-input" placeholder="Tweak this shot — e.g. darker background, no people" maxlength="500">` +
+      `<button type="submit" class="shot-refine-send">Apply</button>` +
       `</form>`
     : failed
     ? `<div class="shot-retry"><button type="button" class="shot-retry-btn" data-shot-id="${shot.id}">↻ Retry</button></div>`
@@ -834,11 +861,17 @@ async function onShotRefine(e) {
 }
 
 async function onShotRetry(e) {
-  const btn = e.currentTarget;
-  const shotId = Number(btn.dataset.shotId);
+  const btn = e?.currentTarget instanceof HTMLElement ? e.currentTarget : null;
+  const shotId = Number((btn?.dataset || e?.currentTarget?.dataset || {}).shotId);
+  await triggerShotRetry(shotId, btn);
+}
+
+async function triggerShotRetry(shotId, btn) {
   if (!shotId || !SESSION_ID) return;
-  btn.disabled = true;
-  btn.textContent = "↻ retrying…";
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "↻ retrying…";
+  }
   try {
     const r = await fetch(`/api/sessions/${SESSION_ID}/shots/${shotId}/retry`, {
       method: "POST",
@@ -847,7 +880,7 @@ async function onShotRetry(e) {
       const j = await r.json().catch(() => ({}));
       throw new Error(j.detail || `HTTP ${r.status}`);
     }
-    // Restart polling so the card updates as the retry progresses
+    // Repaint the card immediately so the user sees state change.
     const card = document.querySelector(`.image-card[data-shot-id="${shotId}"]`);
     if (card) {
       card.dataset.status = "running";
@@ -859,8 +892,10 @@ async function onShotRetry(e) {
     }
     startImagePolling();
   } catch (err) {
-    btn.disabled = false;
-    btn.textContent = "↻ Retry";
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "↻ Retry";
+    }
     alert(`Retry failed: ${err.message || err}`);
   }
 }

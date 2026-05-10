@@ -16,9 +16,9 @@
       <div>
         <h1>E-commerce Ad Generation AI Agent</h1>
         <p class="subtitle">
-          From a one-line brief to a finished short-form ad — the agent drafts a multi-shot
-          storyboard from your brand guidelines, generates each scene, lets you tweak and pick
-          the shots you want, and renders the final 9:16 vertical video with a matching voiceover.
+          From a single campaign brief to a ready-made short ad, the agent creates a multi-shot
+          storyboard following brand guidelines, generates scene assets, allows shot selection
+          and editing, and outputs a final 9:16 vertical video with professional voiceover.
         </p>
       </div>
     </div>
@@ -175,6 +175,10 @@
               <span class="asset-chip-remove" id="logo-chip-remove" role="button" aria-label="Remove logo">×</span>
             </span>
             <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
+          </button>
+          <button type="button" id="redraft-storyboard-btn" class="secondary"
+                  title="Ask the agent to draft a different storyboard from the same brief — varying the hook, pacing or scene composition.">
+            ↻ Re-draft
           </button>
           <button type="button" id="confirm-storyboard-btn" class="primary">Confirm and generate stills</button>
           <span class="muted small storyboard-actions-hint">— or keep chatting above to refine.</span>
