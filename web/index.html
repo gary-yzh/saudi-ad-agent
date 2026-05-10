@@ -133,11 +133,6 @@
           </div>
           <button type="submit" id="chat-send" disabled>Send</button>
         </form>
-
-        <p id="voiceover-info" class="form-hint" hidden>
-          Voiceover will be in <strong id="voiceover-info-lang">English (US)</strong>
-          — <a href="/settings#tts_speaker_row">change speaker</a>
-        </p>
       </section>
 
       <!-- Step 2: Storyboard -->
@@ -229,6 +224,15 @@
         </p>
 
         <ol id="image-grid" class="image-grid"></ol>
+
+        <!-- Just-in-time voiceover hint — surfaces only at the moment
+             the user is about to click Generate video, which is when TTS
+             actually fires. Lives here (not under the chat input) so
+             the Brief panel stays focused on writing the brief. -->
+        <p id="voiceover-info" class="form-hint" hidden>
+          Voiceover will be in <strong id="voiceover-info-lang">English (US)</strong>
+          <a href="/settings#tts_speaker_row">change speaker</a>
+        </p>
 
         <div class="panel-actions">
           <button type="button" id="generate-video-btn" class="primary" disabled>Generate video from selection</button>

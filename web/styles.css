@@ -2094,18 +2094,26 @@ button.secondary:active {
 .brief-attach-chip:hover .asset-chip-hint,
 .brief-attach-chip.is-loaded .asset-chip-hint { color: inherit; opacity: 0.8; }
 
-/* Single-line hint tucked under the chat form. No box, no chrome — just
-   small grey text. Apple-style. */
+/* Just-in-time voiceover hint above the Generate-video button. Two-line
+   vertical layout (info on top, link on its own line) — much cleaner
+   than the prior horizontal "info — link" cram under the chat input.
+   The 16-px top margin gives breathing room from the image grid above;
+   the .panel-actions sibling below contributes its own 22-px top margin
+   for total ~22 px separation from the Generate button. */
 .form-hint {
-  margin: 0;
+  margin: 16px 0 0;
   padding: 0;
-  font-size: 12px;
+  font-size: 11.5px;
+  line-height: 1.5;
   color: var(--muted);
-  text-align: right;
+  text-align: left;
 }
 .form-hint[hidden] { display: none; }
 .form-hint strong { font-weight: 600; color: var(--text); }
 .form-hint a {
+  display: block;
+  width: fit-content;            /* underline only as wide as the text */
+  margin-top: 3px;
   color: var(--emerald);
   text-decoration: none;
   border-bottom: 1px solid var(--emerald-light);
