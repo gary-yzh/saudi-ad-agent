@@ -1313,8 +1313,31 @@ button.secondary:active {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px 24px;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
   font-size: 13px;
+}
+
+/* Eval self-check row — sits below the storyboard meta strip with a
+   hairline divider above, so the user reads it as "computed result"
+   rather than "another piece of the brief". Mirrors .sb-meta layout. */
+.sb-eval {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 24px;
+  margin: 0 0 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 13px;
+}
+.sb-eval-cell { display: flex; flex-direction: column; gap: 2px; }
+#sb-ctr {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.005em;
+}
+#sb-eval-status {
+  align-self: flex-start;
+  cursor: help;  /* hover the pill to see the eval notes */
 }
 .sb-meta div { display: flex; flex-direction: column; gap: 2px; }
 .sb-label {

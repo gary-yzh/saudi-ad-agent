@@ -171,6 +171,24 @@
           </div>
         </div>
 
+        <!-- Eval row — heuristic CTR forecast + brand-safety pass/fail.
+             Runs on every storyboard turn; result lives in the assistant
+             message payload so it survives reload via restoreView. -->
+        <div class="sb-eval">
+          <div class="sb-eval-cell">
+            <span class="sb-label">Predicted CTR
+              <span class="info-tip" data-tip="Heuristic estimate from hook length, CTA clarity, voiceover language and body length. KSA short-form benchmark is ~2.5%.">?</span>
+            </span>
+            <span id="sb-ctr">—</span>
+          </div>
+          <div class="sb-eval-cell">
+            <span class="sb-label">Brand-safety
+              <span class="info-tip" data-tip="Self-check: combines CTR threshold + brand-manual consistency. Hover the status pill for details.">?</span>
+            </span>
+            <span id="sb-eval-status" class="api-status">—</span>
+          </div>
+        </div>
+
         <ol id="sb-shots" class="sb-shots"></ol>
 
         <!-- Hidden file input for the sign-off shot's logo chip. The chip

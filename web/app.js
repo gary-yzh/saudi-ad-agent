@@ -345,13 +345,17 @@ function restoreView(view) {
   if (session.locale) showVoiceoverInfo(session.locale);
   if (messages.length) $("chat-empty").classList.add("hidden");
 
-  // Render last consistency warnings if the most recent assistant message
-  // had any (they live in the message payload).
+  // Render last consistency warnings + last eval result. Both live in
+  // assistant message payloads so reloading a session picks them up.
   let lastWarnings = null;
+  let lastEval = null;
   for (const m of messages) {
     renderChatMessage(m.role, m.content, m.payload);
     if (m.role === "assistant" && m.payload?.brand_consistency_warnings?.length) {
       lastWarnings = m.payload.brand_consistency_warnings;
+    }
+    if (m.role === "assistant" && m.payload?.eval) {
+      lastEval = m.payload.eval;
     }
   }
 
@@ -364,6 +368,7 @@ function restoreView(view) {
   if (session.storyboard) {
     showStoryboard(session.storyboard, /* enableConfirm */ session.state === "storyboard_draft");
     if (lastWarnings) showConsistencyWarnings(lastWarnings);
+    if (lastEval) showEval(lastEval);
   }
   if (shot_images.length) {
     showImageGrid(session.storyboard?.shots || [], shot_images);
@@ -430,6 +435,7 @@ async function onSendMessage(e) {
       const stillsExist = !!document.querySelector("#image-grid .image-card");
       showStoryboard(reply.storyboard, /* enableConfirm */ true, { stale: stillsExist });
       showConsistencyWarnings(reply.brand_consistency_warnings || []);
+      if (reply.eval) showEval(reply.eval);
       setStepperFromState("storyboard_draft");
     }
   } catch (err) {
@@ -465,6 +471,24 @@ function renderGuardRejection(detail) {
     `<div class="chat-bubble guard-bubble">${body}</div>`;
   $("chat-log").appendChild(li);
   li.scrollIntoView({ behavior: "smooth", block: "end" });
+}
+
+// Render the Eval result (CTR + brand-safety) into the storyboard panel.
+// Called from restoreView (on session reload) and onSendMessage (when a
+// fresh storyboard arrives in the reply payload).
+function showEval(ev) {
+  if (!ev) return;
+  const ctrEl = $("sb-ctr");
+  if (ctrEl) ctrEl.textContent = ev.ctr_estimate_pct || "—";
+  const statusEl = $("sb-eval-status");
+  if (statusEl) {
+    const status = ev.eval_status || "—";
+    statusEl.textContent = status;
+    statusEl.className = `api-status ${status === "pass" ? "ready" : "missing"}`;
+    // Title shows the heuristic + CTR notes on hover so users can see WHY.
+    const notes = (ev.eval_notes || []).join("\n• ");
+    statusEl.title = notes ? `• ${notes}` : status;
+  }
 }
 
 function showConsistencyWarnings(warnings) {

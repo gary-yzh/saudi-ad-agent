@@ -320,9 +320,21 @@ def chat_turn(session_id: str, user_msg: str) -> dict[str, Any]:
                 # final payload reflects the freshest assessment.
                 consistency_viols = _check_brand_consistency(storyboard, manual_text or "")
 
+        # Step 6 — Eval (CTR estimate + brand-safety self-check).
+        # Heuristic-only, runs on every storyboard turn, deterministic
+        # and free of extra LLM cost.
+        eval_result = _evaluate_storyboard_live(
+            storyboard,
+            has_violations=bool(consistency_viols),
+        )
+
         summary = raw.get("summary") or "Here's a draft storyboard for your ad."
         storage.update_session_storyboard(session_id, storyboard)
-        payload = {"action": "storyboard", "storyboard": storyboard}
+        payload = {
+            "action": "storyboard",
+            "storyboard": storyboard,
+            "eval": eval_result,
+        }
         if consistency_viols:
             payload["brand_consistency_warnings"] = consistency_viols
         storage.add_message(
@@ -336,6 +348,7 @@ def chat_turn(session_id: str, user_msg: str) -> dict[str, Any]:
             "summary": summary,
             "storyboard": storyboard,
             "brand_consistency_warnings": consistency_viols,
+            "eval": eval_result,
         }
 
     fallback = "I didn't quite get that — can you tell me more about the product and target audience?"
@@ -391,6 +404,56 @@ def _is_sign_off_shot(session_id: str, shot_id: int) -> bool:
     if not shots:
         return False
     return int(shot_id) == int(shots[-1]["id"])
+
+
+# ---------------------------------------------------------------------------
+# Eval — CTR estimate + brand-safety self-check (live-flow adapter).
+#
+# nodes/eval.py implements the full eval node for the legacy LangGraph
+# path. The live multi-step flow doesn't run that graph, so we expose the
+# same logic via this adapter — heuristic-only by default (no extra LLM
+# call per chat turn), giving every storyboard a deterministic CTR
+# forecast + pass/fail status without burning tokens. Result is attached
+# to the assistant message payload AND returned to the API caller, so the
+# UI can show it in the storyboard panel.
+# ---------------------------------------------------------------------------
+from .nodes.eval import _heuristic_score, PASS_CTR_THRESHOLD
+
+
+def _evaluate_storyboard_live(
+    storyboard: dict[str, Any],
+    *,
+    has_violations: bool = False,
+) -> dict[str, Any]:
+    """Run heuristic CTR + brand-safety self-check on a storyboard dict.
+
+    Returns:
+        {
+          "ctr_estimate":     0.0-1.0 ratio,
+          "ctr_estimate_pct": "3.2%" string for direct UI display,
+          "eval_status":      "pass" | "fail",
+          "eval_notes":       list[str] of human-readable findings.
+        }
+
+    Status flips to "fail" if CTR is below the KSA short-form floor
+    (PASS_CTR_THRESHOLD = 1.5%) or any guardrail / consistency
+    violation remained unresolved by the post-LLM fixup pass.
+    """
+    ctr, notes = _heuristic_score(storyboard)
+    status = "pass"
+    extra_notes: list[str] = []
+    if ctr < PASS_CTR_THRESHOLD:
+        status = "fail"
+        extra_notes.append(f"Below KSA pass threshold of {PASS_CTR_THRESHOLD:.1%}")
+    if has_violations:
+        status = "fail"
+        extra_notes.append("Brand-consistency / guardrail violations remain")
+    return {
+        "ctr_estimate": ctr,
+        "ctr_estimate_pct": f"{ctr * 100:.1f}%",
+        "eval_status": status,
+        "eval_notes": list(notes) + extra_notes,
+    }
 
 
 def _logo_hint_block(session_id: str, shot_id: int) -> str:
