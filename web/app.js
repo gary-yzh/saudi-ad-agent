@@ -29,9 +29,8 @@ Primary: Pre-orders of Signature Gift Collection (target ROAS ≥ X)
 Secondary: PDP CTR ≥ 2.5%, VTR ≥ 25%
 
 2. AUDIENCE
-Tier 1 GCC: HNW gifters 30–55, Eid/weddings/corporate, AOV $150+
-Tier 2 Asia (KR/JP/SG): Gourmet connoisseurs 28–45
-Tier 3 US launch: Premium food & corporate gifters 35–55
+GCC HNW gifters, 30–55, gifting for Eid / weddings / corporate
+occasions, AOV $150+.
 
 3. KEY MESSAGE (pick ONE)
 "Each date, hand-picked like a jewel." — heritage + craftsmanship.
@@ -39,7 +38,7 @@ Tier 3 US launch: Premium food & corporate gifters 35–55
 4. DELIVERABLE
 Hero 9:16 ≤25s, EN VO + open captions
 Cut-downs: 15s / 6s bumper / 3 static KVs / Stories pack
-Languages: EN master, AR + KO localized
+Languages: EN master (recommend adding AR captions for GCC resonance)
 
 5. VISUAL DIRECTION
 One "ritual of gifting" sequence: hand selecting date in grove →
@@ -55,13 +54,7 @@ Refined, understated, sensory. No superlatives, no urgency.
 - Avoid "world's finest"; use "renowned expert in premium dates"
 - Music: oud-led ambient (no stock orchestral)
 - Captions: ≥40% screen-safe, brand typography
-- Allergen + origin disclosure in caption
-
-8. PLATFORMS
-TikTok, IG Reels, YouTube Shorts, Snapchat (KSA priority), Meta.
-
-9. PRODUCTION
-Timeline / Usage rights / Budget band: [TBD]`;
+- Allergen + origin disclosure in caption`;
 
 const STORE_KEY = "saa.session_id";
 const $ = (id) => document.getElementById(id);
