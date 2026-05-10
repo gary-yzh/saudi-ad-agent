@@ -372,9 +372,26 @@ def _run_with_config(fn, *args, **kwargs):
         reset_request_config(token)
 
 
-def _logo_hint_block(session_id: str) -> str:
-    """If the user uploaded a brand logo, ask Seedream to leave a logo
-    placeholder area (we composite the real logo on top afterwards)."""
+def _is_sign_off_shot(session_id: str, shot_id: int) -> bool:
+    """The brand logo only lands on the sign-off frame — defined as the
+    final shot in the storyboard. Middle shots stay visually clean, the
+    way Apple/Nike short-form ads are cut: the brand mark resolves at the
+    end, not on every frame."""
+    session = storage.get_session(session_id)
+    if session is None:
+        return False
+    shots = (session.get("storyboard") or {}).get("shots") or []
+    if not shots:
+        return False
+    return int(shot_id) == int(shots[-1]["id"])
+
+
+def _logo_hint_block(session_id: str, shot_id: int) -> str:
+    """Tell Seedream to reserve a placeholder area, but only on the
+    sign-off shot when a logo is actually uploaded. Middle shots get the
+    full canvas — no forced negative space."""
+    if not _is_sign_off_shot(session_id, shot_id):
+        return ""
     if storage.get_brand_logo(session_id) is None:
         return ""
     return (
@@ -478,12 +495,15 @@ def _gen_one_shot(
     shot_id = int(shot["id"])
     storage.update_shot_image(session_id, shot_id, status="running")
 
-    logo = storage.get_brand_logo(session_id)
+    # Brand logo is reserved for the sign-off (last) shot only — see
+    # _is_sign_off_shot for the rationale. Middle shots get a clean canvas.
+    is_sign_off = _is_sign_off_shot(session_id, shot_id)
+    logo = storage.get_brand_logo(session_id) if is_sign_off else None
     if prompt_override is not None:
         prompt = prompt_override
     else:
         base_prompt = shot.get("visual_prompt", "") or shot.get("scene", "")
-        prompt = base_prompt + _logo_hint_block(session_id)
+        prompt = base_prompt + _logo_hint_block(session_id, shot_id)
 
     try:
         result = _run_with_config(
@@ -782,7 +802,7 @@ def refine_shot(
 
     base = (
         prev_md.get("current_prompt")
-        or (shot.get("visual_prompt") or "") + _logo_hint_block(session_id)
+        or (shot.get("visual_prompt") or "") + _logo_hint_block(session_id, int(shot_id))
     )
     new_prompt = (
         base
@@ -831,7 +851,7 @@ def retry_shot(*, session_id: str, shot_id: int, executor: ThreadPoolExecutor) -
 
     last_prompt = (
         prev_md.get("current_prompt")
-        or (shot.get("visual_prompt") or "") + _logo_hint_block(session_id)
+        or (shot.get("visual_prompt") or "") + _logo_hint_block(session_id, int(shot_id))
     )
 
     was_moderation = prev_md.get("category") == "moderation"
