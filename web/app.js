@@ -75,6 +75,7 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
   // Chat input typing & Enter-to-send (Shift+Enter for newline).
   $("chat-input").addEventListener("input", () => {
     $("chat-send").disabled = $("chat-input").value.trim().length === 0;
+    autosizeChatInput();
   });
   $("chat-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
@@ -147,6 +148,16 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
       });
   }
 })();
+
+// Grow the chat textarea to fit its content (capped) so a freshly loaded
+// sample brief doesn't get clipped behind the default 4-row height.
+function autosizeChatInput() {
+  const ti = $("chat-input");
+  if (!ti) return;
+  ti.style.height = "auto";
+  const cap = 320; // px
+  ti.style.height = Math.min(ti.scrollHeight, cap) + "px";
+}
 
 function wireAssetChip({ chipId, inputId, removeId, onPick, onRemove }) {
   const chip = $(chipId);

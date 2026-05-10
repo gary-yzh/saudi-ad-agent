@@ -108,26 +108,32 @@
             audience, tone, or length — and propose a multi-shot storyboard once it
             has enough to work with.
           </p>
-          <div class="chat-empty-controls">
-            <label class="empty-locale">
-              <span class="muted small">Voiceover in</span>
-              <select id="locale">
-                <option value="en-US" selected>English (US)</option>
-                <option value="en-SA">English (Saudi)</option>
-                <option value="ar-SA">Arabic (Saudi)</option>
-                <option value="ar-AE">Arabic (UAE)</option>
-                <option value="zh-CN">Chinese</option>
-              </select>
-            </label>
-            <span class="muted small chat-empty-divider">·</span>
-            <button type="button" id="load-sample" class="link">Load Ajwa dates sample</button>
-          </div>
+          <p class="hint chat-empty-sample">
+            Not sure where to start? <button type="button" id="load-sample" class="link">Load &lsquo;Ajwa dates&rsquo; sample</button>
+          </p>
+        </div>
+
+        <!-- Voiceover language — picked before the first chat turn because the
+             planner writes the voiceover script in this language. Styled as a
+             real labeled config row so it's clearly an option, not a chip. -->
+        <div class="brief-config-row" id="brief-config-row">
+          <label for="locale" class="brief-config-label">
+            Voiceover language
+            <span class="info-tip" data-tip="The planner writes the voiceover script in this language and Doubao TTS reads it in the same language. Pick before sending your first message — it's locked once the storyboard is drafted.">?</span>
+          </label>
+          <select id="locale" class="brief-config-select">
+            <option value="en-US" selected>English (US)</option>
+            <option value="en-SA">English (Saudi)</option>
+            <option value="ar-SA">Arabic (Saudi)</option>
+            <option value="ar-AE">Arabic (UAE)</option>
+            <option value="zh-CN">Chinese</option>
+          </select>
         </div>
 
         <ol id="chat-log" class="chat-log"></ol>
 
         <form id="chat-form" class="chat-form">
-          <textarea id="chat-input" rows="2" placeholder="Type your brief, or answer the agent's question. Press Enter to send · Shift+Enter for a new line."></textarea>
+          <textarea id="chat-input" rows="4" placeholder="Type your brief, or answer the agent's question. Press Enter to send · Shift+Enter for a new line."></textarea>
           <button type="submit" id="chat-send" disabled>Send</button>
         </form>
       </section>
@@ -174,7 +180,11 @@
         <ol id="sb-shots" class="sb-shots"></ol>
 
         <div class="panel-actions storyboard-actions">
-          <!-- Logo upload now lives here — composited onto every still that gets generated. -->
+          <button type="button" id="redraft-storyboard-btn" class="secondary"
+                  title="Ask the agent to draft a different storyboard from the same brief — varying the hook, pacing or scene composition.">
+            ↻ Re-draft
+          </button>
+          <!-- Logo upload — composited onto every still that gets generated. -->
           <button type="button" class="asset-chip is-empty" id="logo-chip" data-asset="logo"
                   title="Optional. Upload your brand logo (PNG/JPG/WEBP). It will be composited onto the bottom-right of every generated still — Seedream is told to leave that area empty so placement stays exact.">
             <span class="asset-chip-icon">🏷</span>
@@ -185,10 +195,6 @@
               <span class="asset-chip-remove" id="logo-chip-remove" role="button" aria-label="Remove logo">×</span>
             </span>
             <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
-          </button>
-          <button type="button" id="redraft-storyboard-btn" class="secondary"
-                  title="Ask the agent to draft a different storyboard from the same brief — varying the hook, pacing or scene composition.">
-            ↻ Re-draft
           </button>
           <button type="button" id="confirm-storyboard-btn" class="primary">Confirm and generate stills</button>
           <span class="muted small storyboard-actions-hint">— or keep chatting above to refine.</span>
@@ -246,11 +252,7 @@
   </main>
 
   <footer class="site-footer">
-    <div class="footer-inner">
-      <span>© 2026 Garry Yang Co., Ltd. · All rights reserved.</span>
-      <span class="footer-sep">·</span>
-      <span>Operated by Garry Yang Co., Ltd.</span>
-    </div>
+    <div class="footer-inner">© 2026 Garry Yang Co., Ltd. All rights reserved.</div>
   </footer>
 
   <script src="/static/app.js"></script>

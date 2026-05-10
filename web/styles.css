@@ -1554,37 +1554,45 @@ button.secondary:hover { background: var(--bg); }
    Brief panel — empty state with locale chip
    ============================================================ */
 
-.chat-empty-controls {
+.chat-empty-sample { margin-top: 6px; text-align: center; }
+
+/* Voiceover language — proper labeled config row, not a chip.
+   Lives between the empty-state intro and the chat input form. */
+.brief-config-row {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-top: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.empty-locale {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  padding: 10px 14px;
+  margin: 14px 0;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 4px 10px;
-  margin: 0;
+  border-radius: 6px;
 }
-.empty-locale > span { margin: 0; }
-.empty-locale select {
-  width: auto;
-  padding: 2px 6px;
-  border: none;
-  background: transparent;
-  font-size: 12px;
-  font-weight: 500;
+.brief-config-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  flex-shrink: 0;
+  min-width: 140px;
+}
+.brief-config-select {
+  flex: 1;
+  padding: 7px 28px 7px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 13px;
   color: var(--text);
   cursor: pointer;
 }
-.empty-locale select:focus { box-shadow: none; }
-.chat-empty-divider { padding: 0 4px; }
+.brief-config-select:focus {
+  outline: none;
+  border-color: var(--emerald);
+  box-shadow: 0 0 0 3px var(--emerald-light);
+}
 
 .step-num {
   display: inline-flex;
