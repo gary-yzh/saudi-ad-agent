@@ -315,7 +315,10 @@ async function onSendMessage(e) {
     } else if (reply.action === "storyboard") {
       const intro = reply.summary || "Here's a draft storyboard.";
       renderChatMessage("assistant", intro, { action: "storyboard" });
-      showStoryboard(reply.storyboard, /* enableConfirm */ true);
+      // If stills already exist for an old storyboard, signal that they're
+      // stale and relabel the Confirm button so the user knows to re-run.
+      const stillsExist = !!document.querySelector("#image-grid .image-card");
+      showStoryboard(reply.storyboard, /* enableConfirm */ true, { stale: stillsExist });
       showConsistencyWarnings(reply.brand_consistency_warnings || []);
       setStepperFromState("storyboard_draft");
     }
@@ -400,9 +403,20 @@ function removeChatPending(id) {
 }
 
 // ---------- Storyboard preview ---------------------------------------------
-function showStoryboard(sb, enableConfirm) {
+function showStoryboard(sb, enableConfirm, opts = {}) {
   _storyboardCache = sb || null;  // refresh cache so polling renders fresh shot metadata
   $("storyboard-panel").classList.remove("hidden");
+
+  // Stale warning + button relabel when an existing stills grid no longer
+  // reflects the latest storyboard.
+  const stale = !!opts.stale;
+  $("sb-stale").classList.toggle("hidden", !stale);
+  const confirmBtn = $("confirm-storyboard-btn");
+  if (confirmBtn) {
+    confirmBtn.textContent = stale
+      ? "Re-generate stills"
+      : "Confirm and generate stills";
+  }
   $("sb-hook").textContent = sb.hook || "—";
   $("sb-cta").textContent = sb.cta || "—";
 
@@ -453,7 +467,7 @@ async function onConfirmStoryboard() {
     }
     const view = await r.json();
     const sb = view.session.storyboard;
-    showStoryboard(sb, false);
+    showStoryboard(sb, false, { stale: false });
     showImageGrid(sb.shots || [], view.shot_images);
     setStepperFromState("storyboard_confirmed");
     startImagePolling();

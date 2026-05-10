@@ -75,22 +75,11 @@
       <section class="card chat-panel">
         <header class="panel-head">
           <h2><span class="step-num">1</span> Brief</h2>
-          <div class="brief-assets" id="brief-assets" title="Optional brand inputs the planner will use">
-            <!-- Logo chip -->
-            <button type="button" class="asset-chip is-empty" id="logo-chip" data-asset="logo" title="Add brand logo (composited onto every still). PNG / JPG / WEBP.">
-              <span class="asset-chip-icon">🏷</span>
-              <span class="asset-chip-label asset-chip-empty-label">Add logo</span>
-              <span class="asset-chip-loaded-wrap hidden">
-                <span class="asset-chip-check">✓</span>
-                <span class="asset-chip-name" id="logo-chip-name"></span>
-                <span class="asset-chip-remove" id="logo-chip-remove" role="button" aria-label="Remove logo">×</span>
-              </span>
-              <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
-            </button>
-            <!-- PDF chip -->
-            <button type="button" class="asset-chip is-empty" id="pdf-chip" data-asset="pdf" title="Add brand manual PDF (used as RAG context: palette, modesty rules, sign-off …)">
+          <div class="brief-assets" id="brief-assets" title="Optional brand input the planner will use when drafting the storyboard">
+            <!-- Brand manual stays here — the planner reads it BEFORE the storyboard is drafted -->
+            <button type="button" class="asset-chip is-empty" id="pdf-chip" data-asset="pdf" title="Upload the brand manual PDF — the planner uses it as context (palette, modesty rules, sign-off …)">
               <span class="asset-chip-icon">📄</span>
-              <span class="asset-chip-label asset-chip-empty-label">Add brand manual</span>
+              <span class="asset-chip-label asset-chip-empty-label">Add Brand Manual</span>
               <span class="asset-chip-loaded-wrap hidden">
                 <span class="asset-chip-check">✓</span>
                 <span class="asset-chip-name" id="pdf-chip-name"></span>
@@ -145,6 +134,11 @@
         </p>
 
         <div id="sb-consistency" class="consistency-warnings hidden"></div>
+        <div id="sb-stale" class="sb-stale hidden">
+          <strong>⚠ Storyboard updated.</strong>
+          The stills below were generated from a previous version and may no longer match.
+          Click <em>Re-generate stills</em> to refresh them.
+        </div>
 
         <div class="sb-meta">
           <div>
@@ -169,9 +163,21 @@
 
         <ol id="sb-shots" class="sb-shots"></ol>
 
-        <div class="panel-actions">
+        <div class="panel-actions storyboard-actions">
+          <!-- Logo upload now lives here — composited onto every still that gets generated. -->
+          <button type="button" class="asset-chip is-empty" id="logo-chip" data-asset="logo"
+                  title="Optional. Upload your brand logo (PNG/JPG/WEBP). It will be composited onto the bottom-right of every generated still — Seedream is told to leave that area empty so placement stays exact.">
+            <span class="asset-chip-icon">🏷</span>
+            <span class="asset-chip-label asset-chip-empty-label">Add Brand Logo</span>
+            <span class="asset-chip-loaded-wrap hidden">
+              <span class="asset-chip-check">✓</span>
+              <span class="asset-chip-name" id="logo-chip-name"></span>
+              <span class="asset-chip-remove" id="logo-chip-remove" role="button" aria-label="Remove logo">×</span>
+            </span>
+            <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
+          </button>
           <button type="button" id="confirm-storyboard-btn" class="primary">Confirm and generate stills</button>
-          <span class="muted small">— or keep chatting above to refine.</span>
+          <span class="muted small storyboard-actions-hint">— or keep chatting above to refine.</span>
         </div>
       </section>
 

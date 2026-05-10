@@ -456,20 +456,22 @@ def _save_still_locally(
 
 
 def _gen_one_shot(
-    session_id: str, shot: dict, *, extra_metadata: dict | None = None
+    session_id: str,
+    shot: dict,
+    *,
+    prompt_override: str | None = None,
+    extra_metadata: dict | None = None,
 ) -> None:
     """Generate (or regenerate) a single shot's still image.
 
-    Behaviour:
-      * Build the prompt — base visual_prompt + optional logo placeholder hint.
-      * Call Seedream → get a Volcengine signed URL.
-      * **Always download** the JPEG and save it under
-        outputs/runs/<sid>/shots/<id>.jpg, optionally compositing the brand
-        logo on top. The local URL is what the UI loads, so it doesn't matter
-        when Volcengine's signature expires (in 24 h).
-      * The original Volcengine URL stays in metadata.original_url so video
-        gen can still feed Seedance a public URL (Volcengine can't fetch our
-        localhost composite).
+    Two prompt-source modes:
+      * Default — rebuild prompt from the storyboard shot + logo hint.
+      * `prompt_override` — use the supplied prompt verbatim. Refine and
+        Retry pass the accumulated prompt this way so iterative edits
+        compound (turn 1's "darker background" still applies on turn 2).
+
+    The accumulated prompt is stashed in metadata.current_prompt so the
+    next refine/retry can read it back.
     """
     from .tools import bytedance_apis as apis
 
@@ -477,8 +479,11 @@ def _gen_one_shot(
     storage.update_shot_image(session_id, shot_id, status="running")
 
     logo = storage.get_brand_logo(session_id)
-    base_prompt = shot.get("visual_prompt", "") or shot.get("scene", "")
-    prompt = base_prompt + _logo_hint_block(session_id)
+    if prompt_override is not None:
+        prompt = prompt_override
+    else:
+        base_prompt = shot.get("visual_prompt", "") or shot.get("scene", "")
+        prompt = base_prompt + _logo_hint_block(session_id)
 
     try:
         result = _run_with_config(
@@ -488,6 +493,8 @@ def _gen_one_shot(
         metadata: dict[str, Any] = dict(result)
         metadata["original_url"] = original_url
         metadata["prompt_used"] = prompt[:1500]
+        # Stash the full prompt so the next refine/retry can keep building on it.
+        metadata["current_prompt"] = prompt
         if extra_metadata:
             metadata.update(extra_metadata)
 
@@ -523,6 +530,7 @@ def _gen_one_shot(
             "category": "moderation",
             "code": e.code,
             "message": e.message,
+            "current_prompt": prompt,  # let the next retry soften this exact prompt
         }
         if extra_metadata:
             failure_md.update(extra_metadata)
@@ -534,12 +542,15 @@ def _gen_one_shot(
             metadata=failure_md,
         )
     except Exception as e:
+        failure_md = {"current_prompt": prompt}
+        if extra_metadata:
+            failure_md.update(extra_metadata)
         storage.update_shot_image(
             session_id,
             shot_id,
             status="failed",
             error=str(e),
-            metadata=extra_metadata or None,
+            metadata=failure_md,
         )
 
 
@@ -744,70 +755,117 @@ def _shot_in_storyboard(session_id: str, shot_id: int) -> dict[str, Any]:
     return shot
 
 
+def _prev_shot_metadata(session_id: str, shot_id: int) -> dict[str, Any]:
+    """Read back the metadata blob from the last image-gen attempt for
+    this shot, or {} if no row exists."""
+    images = storage.list_shot_images(session_id)
+    prev = next((r for r in images if int(r["shot_id"]) == int(shot_id)), None)
+    if not prev or not prev.get("metadata_json"):
+        return {}
+    try:
+        return json.loads(prev["metadata_json"])
+    except json.JSONDecodeError:
+        return {}
+
+
 def refine_shot(
     *, session_id: str, shot_id: int, instruction: str, executor: ThreadPoolExecutor
 ) -> None:
-    """Re-generate a single shot with an iterative user instruction appended
-    to its visual_prompt."""
-    shot = _shot_in_storyboard(session_id, shot_id)
-    refined_visual = (shot.get("visual_prompt") or "") + (
-        f"\n\nUser refinement (please honor this above all): {instruction.strip()}"
+    """Re-generate a shot with an iterative user instruction appended.
+
+    Each refinement builds on the prompt that **was actually used last
+    time** (cumulative), not on the original storyboard prompt — so
+    'make it darker' followed by 'no people' produces a darker, no-people
+    image, not just a no-people image."""
+    shot = _shot_in_storyboard(session_id, int(shot_id))
+    prev_md = _prev_shot_metadata(session_id, int(shot_id))
+
+    base = (
+        prev_md.get("current_prompt")
+        or (shot.get("visual_prompt") or "") + _logo_hint_block(session_id)
     )
-    refined_shot = {**shot, "visual_prompt": refined_visual}
+    new_prompt = (
+        base
+        + f"\n\nUser refinement #{len(prev_md.get('refinement_history') or []) + 1}: "
+        + instruction.strip()
+    )
+
+    history = list(prev_md.get("refinement_history") or [])
+    history.append({"instruction": instruction.strip()})
+
     storage.update_shot_image(session_id, int(shot_id), status="running")
-    executor.submit(_gen_one_shot, session_id, refined_shot)
+    executor.submit(
+        _gen_one_shot,
+        session_id,
+        shot,
+        prompt_override=new_prompt,
+        extra_metadata={
+            "refinement_history": history,
+            # reset retry counter — refinement is a fresh creative direction
+            "retry_softening_level": 0,
+        },
+    )
 
 
 def retry_shot(*, session_id: str, shot_id: int, executor: ThreadPoolExecutor) -> None:
     """Re-run Seedream for a shot.
 
+    Builds on the **last actually-used prompt** (current_prompt in
+    metadata) so any prior refinements survive the retry.
+
     If the prior attempt was rejected by Doubao's content moderation, we
-    don't blindly resubmit the same prompt (it's deterministic and would
-    hit the same wall). Instead we ask the LLM to soften the prompt and
-    advance a `retry_softening_level` counter so each subsequent retry is
-    more aggressive — light replacement on level 1, full humans-stripped
-    product-only on level 2+. If the prior failure was something else
-    (network, etc.) we just retry the original prompt."""
-    from .nodes.tool_use import _soften_prompt  # local import to avoid cycles
+    don't blindly resubmit the same prompt — Doubao is deterministic. We
+    ask the LLM to soften the previous prompt and advance a
+    `retry_softening_level` counter; each subsequent retry is more
+    aggressive (light cultural-marker replacement → product-only).
+    Non-moderation failures retry the previous prompt unchanged.
+    """
+    from .nodes.tool_use import _soften_prompt  # local import — avoids cycles
 
     shot = _shot_in_storyboard(session_id, int(shot_id))
-    images = storage.list_shot_images(session_id)
-    prev = next((r for r in images if int(r["shot_id"]) == int(shot_id)), None)
+    prev_md = _prev_shot_metadata(session_id, int(shot_id))
+    prev_row = next(
+        (r for r in storage.list_shot_images(session_id) if int(r["shot_id"]) == int(shot_id)),
+        None,
+    )
 
-    prev_md: dict[str, Any] = {}
-    if prev and prev.get("metadata_json"):
-        try:
-            prev_md = json.loads(prev["metadata_json"])
-        except json.JSONDecodeError:
-            prev_md = {}
+    last_prompt = (
+        prev_md.get("current_prompt")
+        or (shot.get("visual_prompt") or "") + _logo_hint_block(session_id)
+    )
 
     was_moderation = prev_md.get("category") == "moderation"
     softening_level = int(prev_md.get("retry_softening_level", 0))
 
     extra_md: dict[str, Any] = {}
-    retry_shot_dict = shot
+    retry_prompt: str = last_prompt
 
     if was_moderation:
         softening_level += 1
         try:
             softened = _soften_prompt(
-                shot.get("visual_prompt", "") or shot.get("scene", ""),
+                last_prompt,
                 stage="image",
-                reason=(prev or {}).get("error") or "previous moderation hit",
+                reason=(prev_row or {}).get("error") or "previous moderation hit",
                 attempt=softening_level,
             )
-            retry_shot_dict = {**shot, "visual_prompt": softened}
+            retry_prompt = softened
             extra_md["retry_softening_level"] = softening_level
             extra_md["retry_softened_prompt_head"] = softened[:240]
         except Exception as e:
-            # If softening itself fails (LLM hiccup), fall back to the
-            # original prompt — at least the user gets *some* retry.
             extra_md["soften_error"] = str(e)
             extra_md["retry_softening_level"] = softening_level
+    # Preserve refinement history through the retry
+    if prev_md.get("refinement_history"):
+        extra_md["refinement_history"] = prev_md["refinement_history"]
 
     storage.update_shot_image(session_id, int(shot_id), status="running")
     executor.submit(
-        _gen_one_shot, session_id, retry_shot_dict, extra_metadata=extra_md or None
+        _gen_one_shot,
+        session_id,
+        shot,
+        prompt_override=retry_prompt,
+        extra_metadata=extra_md or None,
     )
 
 
