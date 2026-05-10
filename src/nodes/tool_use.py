@@ -27,11 +27,26 @@ Doubao's safety filter. The original prompt was rejected for sensitive content.
 Replace anything religiously, ethnically or politically charged with neutral
 equivalents while keeping the brand intent and visual style:
 - "Saudi mother in abaya" → "young woman in modest dark long-sleeve top"
+- "Saudi man in thobe"    → "man in modern casual outfit"
 - "mosque", "minaret", "azaan", "iftar" → cafe / kitchen / dinner table
 - specific ethnicities, religions, holidays → omit or use generic descriptors
 - Ramadan / Eid → "family gathering" or "celebration"
 - traditional dress → "modest casual attire" / "professional outfit"
 - Arabic-language UI / typography references → drop them
+- "halo" / "halos" → "mist trails" / "soft glow" (Doubao reads halos as
+  religious-figure imagery — saints, deities — and rejects them)
+
+CRITICAL — preserve subject specifics from the original:
+- If the scene has a "man", the rewrite MUST say "man" (not "person",
+  not "model", not "spokesperson").
+- If the scene has a "woman", the rewrite MUST say "woman".
+- Same for age ("30+", "elderly"), action ("spraying", "applying"),
+  and product role.
+
+Diffusion models default to category stereotypes — women for
+beauty/perfume scenes, men for sport/tools — so explicit gender
+markers are mandatory to override category bias. Strip the
+ETHNICITY ("Saudi"), keep the GENDER ("man").
 
 Keep the lighting, framing, palette, motion direction and the product.
 
@@ -39,51 +54,96 @@ Return STRICT JSON: {"prompt": "<the rewritten prompt>"}. Output ONLY the JSON.
 """
 
 SOFTEN_AGGRESSIVE = """You rewrite a video generation prompt that has been
-rejected TWICE by Doubao's safety filter. Take the strongest possible action:
+rejected TWICE by Doubao's safety filter. Take strong action — but
+preserve the SUBJECT specifics:
 
-- REMOVE all humans entirely. The shot is product-only or environment-only.
 - REMOVE every cultural, ethnic, religious or geographic marker.
-- REMOVE all language / typography references.
-- KEEP only: the product, the lighting, the camera move, the palette, the framing.
+- REMOVE specific religious dress (thobe, abaya, hijab) — replace with
+  "modern casual outfit" / "modest long-sleeve top".
+- REMOVE all language / typography references and "halos" / religious symbols.
 
-Output a clean, generic product/scene description that any global brand could
-use. Aim for ~40 words. Do not mention people, faces, dress, festivals or any
-specific country or region.
+KEEP these things from the original:
+- The subject's gender and age. A "man" stays a "man", a "woman" stays
+  a "woman". Diffusion models bias toward women in beauty/perfume scenes
+  and men in sport/tools — if the original says man and you remove it,
+  the model generates a woman by default. Gender markers MUST survive.
+- The action they're doing (spraying, drinking, holding, walking).
+- The product, lighting, camera move, palette, framing.
+
+Aim for ~40 words. Do not mention specific countries, religions, holidays,
+or religious clothing — but DO mention the subject's gender and what they
+are doing.
 
 Return STRICT JSON: {"prompt": "<the rewritten prompt>"}. Output ONLY the JSON.
 """
 
 
-# Cultural markers that Doubao's vision moderation tends to flag, especially
-# when combined with a person. "halo"/"halos" added because Doubao strongly
-# associates them with religious-figure imagery (saints, deities) — a perfume
-# ad's "aroma halos" reads as a religious figure to the model.
-_CULTURAL_MARKERS: tuple[str, ...] = (
-    "abaya", "hijab", "thobe", "mosque", "minaret", "azaan", "iftar",
-    "ramadan", "Saudi mother", "Saudi family", "Saudi woman", "Saudi man",
-    "Muslim", "Islamic", "Eid", "prayer", "Arabic typography", "Arabic copy",
-    "Tajawal", "halo", "halos", "religious",
+# Cultural-marker replacements — pairs of (regex, replacement). Crucially,
+# gender markers are PRESERVED while ethnicity / religion / specific dress
+# is stripped. "Saudi man" → "man" (not → ""). Without this, diffusion
+# models default to category stereotypes (women for beauty/perfume, men
+# for tools/sport) and silently flip the subject.
+#
+# Order matters: multi-word phrases ("Saudi man") match BEFORE single-word
+# adjectives ("Saudi") so gender survives the rewrite.
+_CULTURAL_REPLACEMENTS: tuple[tuple[str, str], ...] = (
+    # Gender-bearing multi-word phrases — keep gender, drop ethnicity
+    (r"\bSaudi\s+man\b",       "man"),
+    (r"\bSaudi\s+woman\b",     "woman"),
+    (r"\bSaudi\s+mother\b",    "woman"),
+    (r"\bSaudi\s+father\b",    "man"),
+    (r"\bSaudi\s+family\b",    "family"),
+    (r"\bMuslim\s+man\b",      "man"),
+    (r"\bMuslim\s+woman\b",    "woman"),
+    (r"\bMuslim\s+family\b",   "family"),
+    (r"\bIslamic\s+prayer\b",  "quiet moment"),
+    (r"\bArabic\s+typography\b", "elegant typography"),
+    (r"\bArabic\s+copy\b",     "elegant text"),
+    # Cultural attire — replace, don't strip (so subject still has clothes)
+    (r"\bthobes?\b",           "modern casual outfit"),
+    (r"\babayas?\b",           "modest long-sleeve outfit"),
+    (r"\bhijabs?\b",           "headscarf"),
+    # Religious settings
+    (r"\bmosques?\b",          "modern building"),
+    (r"\bminarets?\b",         "tower"),
+    # Religious symbol bias triggers (Doubao reads "halos" as saint imagery)
+    (r"\bhalos?\b",            "mist trails"),
+    # Times / events
+    (r"\bazaan\b",             "evening atmosphere"),
+    (r"\biftars?\b",           "evening meal"),
+    (r"\bramadans?\b",         "evening gathering"),
+    (r"\bEid\b",               "celebration"),
+    # Single-word ethnic / religious adjectives — strip
+    (r"\bMuslim\b",            ""),
+    (r"\bIslamic\b",           ""),
+    (r"\bSaudi\b",             ""),
+    (r"\bArabic\b",            ""),
+    (r"\breligious\b",         ""),
+    (r"\bprayer\b",            ""),
+    (r"\bTajawal\b",           "modern font"),
 )
 
 
 def _strip_cultural_markers(original: str) -> str:
-    """Deterministic strip of culturally / religiously-loaded terms.
+    """Replace culturally-loaded terms with gender-preserving neutrals.
+
     Used as fallback when LLM softening fails AND as the level-3 tier.
 
-    Uses word-boundary regex so "halo" doesn't half-eat "halos" (and
-    similar plural-form leftovers); also collapses runs of whitespace
-    and stray punctuation left behind so the output reads cleanly."""
+    Crucial: phrases like "Saudi man" become "man", NOT "" — diffusion
+    models default to women in beauty/perfume scenes when no gender is
+    specified, so dropping gender along with "Saudi" silently flips the
+    subject. Same for "Saudi woman" → "woman".
+
+    Uses word-boundary regex so "halo" doesn't half-eat "halos"; also
+    collapses runs of whitespace and stray punctuation left behind so
+    the output reads cleanly."""
     out = original
-    for term in _CULTURAL_MARKERS:
-        out = re.sub(
-            r"\b" + re.escape(term) + r"\b",
-            "",
-            out,
-            flags=re.IGNORECASE,
-        )
+    for pattern, replacement in _CULTURAL_REPLACEMENTS:
+        out = re.sub(pattern, replacement, out, flags=re.IGNORECASE)
     # Tidy up: collapse double spaces, kill orphaned " ()" or " ," that
     # the strip leaves behind (e.g. "wearing crisp white thobe)" → "wearing
-    # crisp white )" → "wearing crisp white" after this step).
+    # crisp white modern casual outfit)" → fine; or "Saudi (30+,..." →
+    # "(30+,..." with empty leading content cleaned by the regexes below).
     out = re.sub(r"\(\s*[,;]?\s*\)", "", out)   # empty parens
     out = re.sub(r"\s+([,.;:!?])", r"\1", out)  # space before punctuation
     out = re.sub(r"\s{2,}", " ", out).strip()
