@@ -386,11 +386,12 @@ def _audio_params() -> dict[str, Any]:
         # with the client-side 1.6× Web Audio gain, total ~2.4× boost.
         "loudness_rate": int(cfg_get("tts_loudness_rate", default=30)),
     }
-    # Emotion default "happy" — most ad voiceovers want an upbeat tone.
-    # User can pick a different emotion in Settings (calm / neutral /
-    # sad / angry / surprised) or revert to neutral if their brand
-    # voice prefers understated. Empty string still bypasses the param.
-    emotion = cfg_get("tts_emotion", default="happy")
+    # Emotion default "neutral" — works across brand tones (premium /
+    # restrained / playful) without colouring the voiceover one way or
+    # the other. User picks a more specific emotion in Settings
+    # (calm / happy / warm / sad / angry / surprised) if their brand
+    # voice needs it. Empty string still bypasses the param entirely.
+    emotion = cfg_get("tts_emotion", default="neutral")
     if emotion:
         params["emotion"] = emotion
     emotion_scale = cfg_get("tts_emotion_scale", default=None)

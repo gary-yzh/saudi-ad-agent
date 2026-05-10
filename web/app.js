@@ -443,12 +443,16 @@ function restoreView(view) {
 
   // Render last consistency warnings + last eval result. Both live in
   // assistant message payloads so reloading a session picks them up.
-  let lastWarnings = null;
+  let lastConsistency = null;
+  let lastFidelity = null;
   let lastEval = null;
   for (const m of messages) {
     renderChatMessage(m.role, m.content, m.payload);
     if (m.role === "assistant" && m.payload?.brand_consistency_warnings?.length) {
-      lastWarnings = m.payload.brand_consistency_warnings;
+      lastConsistency = m.payload.brand_consistency_warnings;
+    }
+    if (m.role === "assistant" && m.payload?.brief_fidelity_warnings?.length) {
+      lastFidelity = m.payload.brief_fidelity_warnings;
     }
     if (m.role === "assistant" && m.payload?.eval) {
       lastEval = m.payload.eval;
@@ -463,7 +467,12 @@ function restoreView(view) {
 
   if (session.storyboard) {
     showStoryboard(session.storyboard, /* enableConfirm */ session.state === "storyboard_draft");
-    if (lastWarnings) showConsistencyWarnings(lastWarnings);
+    if (lastConsistency || lastFidelity) {
+      showConsistencyWarnings({
+        consistency: lastConsistency || [],
+        fidelity: lastFidelity || [],
+      });
+    }
     if (lastEval) showEval(lastEval);
     // After reload, if a storyboard already exists, the chat input should
     // reflect the "refine, or confirm below" mode — not the initial-brief
@@ -546,7 +555,10 @@ async function onSendMessage(e) {
       // stale and relabel the Confirm button so the user knows to re-run.
       const stillsExist = !!document.querySelector("#image-grid .image-card");
       showStoryboard(reply.storyboard, /* enableConfirm */ true, { stale: stillsExist });
-      showConsistencyWarnings(reply.brand_consistency_warnings || []);
+      showConsistencyWarnings({
+        consistency: reply.brand_consistency_warnings || [],
+        fidelity: reply.brief_fidelity_warnings || [],
+      });
       if (reply.eval) showEval(reply.eval);
       setStepperFromState("storyboard_draft");
 
@@ -618,22 +630,52 @@ function showEval(ev) {
   }
 }
 
-function showConsistencyWarnings(warnings) {
+// Render two kinds of warnings on the storyboard panel:
+//   • consistency — brand-manual LLM judge said the storyboard violates rules
+//   • fidelity    — deterministic check found brief constraints missed
+//
+// Backward-compat shim: if called with a single array, treat it as the
+// legacy consistency list. Otherwise pass {consistency, fidelity}.
+function showConsistencyWarnings(arg) {
+  let consistency = [];
+  let fidelity = [];
+  if (Array.isArray(arg)) {
+    consistency = arg;
+  } else if (arg && typeof arg === "object") {
+    consistency = arg.consistency || [];
+    fidelity = arg.fidelity || [];
+  }
   const el = $("sb-consistency");
-  if (!warnings || !warnings.length) {
+  const total = consistency.length + fidelity.length;
+  if (total === 0) {
     el.classList.add("hidden");
     el.innerHTML = "";
     return;
   }
   el.classList.remove("hidden");
-  el.innerHTML =
-    `<strong>⚠ Brand-manual consistency warnings (${warnings.length})</strong>` +
-    `<ul>` +
-    warnings.map((w) =>
-      `<li><span class="warning-rule">${escapeHtml(w.rule || "")}</span> — ${escapeHtml(w.issue || "")}</li>`
-    ).join("") +
-    `</ul>` +
-    `<p class="muted small">Reply in the chat asking the planner to fix these, or proceed if you're OK with them.</p>`;
+
+  let html = `<strong>⚠ Storyboard issues (${total})</strong>`;
+  if (fidelity.length) {
+    html +=
+      `<p class="warning-section-title">Brief fidelity — these come from your brief and were missed:</p>` +
+      `<ul>` +
+      fidelity.map((w) =>
+        `<li>${escapeHtml(w.issue || "")}<br>` +
+        `<span class="warning-suggestion">↳ ${escapeHtml(w.suggestion || "")}</span></li>`
+      ).join("") +
+      `</ul>`;
+  }
+  if (consistency.length) {
+    html +=
+      `<p class="warning-section-title">Brand-manual consistency:</p>` +
+      `<ul>` +
+      consistency.map((w) =>
+        `<li><span class="warning-rule">${escapeHtml(w.rule || "")}</span> — ${escapeHtml(w.issue || "")}</li>`
+      ).join("") +
+      `</ul>`;
+  }
+  html += `<p class="muted small">Reply in the chat asking the planner to fix these, or proceed if you're OK with them.</p>`;
+  el.innerHTML = html;
 }
 
 function renderChatMessage(role, content, payload = null) {

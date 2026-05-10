@@ -244,6 +244,153 @@ Rules to follow:
 - Output ONLY the JSON object, no commentary."""
 
 
+# ---------------------------------------------------------------------------
+# Brief fidelity — deterministic verification + fixup
+#
+# Rationale: the planner LLM is told to follow the brief verbatim (see
+# CHAT_SYSTEM BRIEF FIDELITY section), but LLMs are statistical, not
+# deterministic. About ~95% of well-structured briefs will get followed;
+# the other ~5% need a safety net. The helpers below extract three
+# specific kinds of brief constraints — required CTA, banned phrases,
+# required phrases — and check the generated storyboard against them.
+# Violations are fed into the same fixup-loop machinery that
+# brand-consistency violations use, so the planner gets one chance to
+# rewrite before we surface a warning to the user.
+# ---------------------------------------------------------------------------
+
+# Only double-quote variants (straight + curly). Single quotes are
+# excluded so apostrophes inside phrases ("world's finest") don't
+# prematurely close a capture.
+_DOUBLE_QUOTES = '"“”'
+
+
+def _extract_brief_constraints(user_msg: str) -> dict[str, Any]:
+    """Parse a creative brief for the three constraint types the LLM is
+    most likely to silently override:
+
+      • `CTA: "..."`                          → required_cta
+      • `Avoid "..."` / `Don't use "..."` /   → banned_phrases (list)
+        `Never use "..."` / `Don't say "..."`
+      • `use "..."`                           → required_phrases (list)
+
+    Patterns require DOUBLE quotes (straight or curly) — single quotes
+    are intentionally not supported because they appear inside phrases
+    like "world's finest" and would close the capture prematurely.
+
+    Returns:
+        {
+          "required_cta":     str | None,
+          "banned_phrases":   list[str],
+          "required_phrases": list[str],
+        }
+    """
+    out: dict[str, Any] = {
+        "required_cta": None,
+        "banned_phrases": [],
+        "required_phrases": [],
+    }
+    if not user_msg:
+        return out
+
+    q = f"[{re.escape(_DOUBLE_QUOTES)}]"
+    nq = f"[^{re.escape(_DOUBLE_QUOTES)}\\n]"  # exclude newlines too — don't cross lines
+
+    # CTA extraction
+    cta_m = re.search(rf"\bCTA\s*[:：]\s*{q}({nq}+){q}", user_msg, re.IGNORECASE)
+    if cta_m:
+        out["required_cta"] = cta_m.group(1).strip()
+
+    # Single combined pattern for avoid/use, classified by the matched action
+    avoid_use_pattern = re.compile(
+        rf"(?P<action>avoid|don'?t\s+use|never\s+use|don'?t\s+say|use)\s+{q}({nq}+){q}",
+        re.IGNORECASE,
+    )
+    for m in avoid_use_pattern.finditer(user_msg):
+        action = re.sub(r"\s+", " ", m.group("action").lower().strip())
+        phrase = m.group(2).strip()
+        if action == "use":
+            out["required_phrases"].append(phrase)
+        else:
+            # avoid / don't use / never use / don't say
+            out["banned_phrases"].append(phrase)
+
+    return out
+
+
+def _norm_phrase(s: str) -> str:
+    """Lowercase + strip whitespace and trailing punctuation. Used for
+    case-insensitive comparison of phrases like 'Reserve the collection'
+    vs 'reserve the collection.'."""
+    return s.lower().strip().strip(".,;!?。！？")
+
+
+def _check_brief_fidelity(
+    storyboard: dict[str, Any], constraints: dict[str, Any]
+) -> list[dict[str, str]]:
+    """Compare a generated storyboard against the brief's hard constraints.
+
+    Returns a list of {issue, suggestion} dicts — empty list means clean.
+
+    Checks:
+      1. If brief specifies a CTA, storyboard.cta must match it
+         (case-insensitive, trailing punctuation stripped).
+      2. Any banned phrase from the brief must NOT appear in any field.
+      3. Any required phrase from the brief MUST appear somewhere
+         (in hook / body / cta / voiceover, OR in any shot's scene /
+         visual_prompt / motion_prompt).
+    """
+    violations: list[dict[str, str]] = []
+
+    cta = (storyboard.get("cta") or "").strip()
+    if constraints.get("required_cta"):
+        if _norm_phrase(cta) != _norm_phrase(constraints["required_cta"]):
+            violations.append({
+                "issue": (
+                    f'CTA mismatch — brief specifies CTA: "{constraints["required_cta"]}" '
+                    f'but storyboard.cta is "{cta or "(empty)"}"'
+                ),
+                "suggestion": (
+                    f'Set storyboard.cta to "{constraints["required_cta"]}" verbatim '
+                    f"(case-insensitive match; trailing punctuation OK)."
+                ),
+            })
+
+    # Concatenate every storyboard text field for substring scanning
+    parts = [
+        storyboard.get("hook") or "",
+        storyboard.get("body") or "",
+        storyboard.get("cta") or "",
+        storyboard.get("voiceover") or "",
+    ]
+    for shot in storyboard.get("shots") or []:
+        parts.append(shot.get("scene") or "")
+        parts.append(shot.get("visual_prompt") or "")
+        parts.append(shot.get("motion_prompt") or "")
+    all_text = " ".join(parts).lower()
+
+    for banned in constraints.get("banned_phrases", []):
+        if banned.lower() in all_text:
+            violations.append({
+                "issue": f'Banned phrase appears in storyboard: "{banned}"',
+                "suggestion": (
+                    f'Remove or rephrase any occurrence of "{banned}" — the brief '
+                    f"explicitly asks to avoid it."
+                ),
+            })
+
+    for required in constraints.get("required_phrases", []):
+        if required.lower() not in all_text:
+            violations.append({
+                "issue": f'Required phrase missing from storyboard: "{required}"',
+                "suggestion": (
+                    f'Include "{required}" naturally in hook, body, voiceover or '
+                    f"a shot description — the brief specifies it must be used."
+                ),
+            })
+
+    return violations
+
+
 def _check_brand_consistency(storyboard: dict[str, Any], manual_text: str) -> list[dict[str, str]]:
     """Run a second LLM pass that judges the draft storyboard against the
     uploaded brand manual. Returns a list of {rule, issue} dicts.
@@ -364,7 +511,15 @@ def chat_turn(session_id: str, user_msg: str) -> dict[str, Any]:
         # Step 5 — brand-manual consistency check (only if user uploaded one)
         consistency_viols = _check_brand_consistency(storyboard, manual_text or "")
 
-        if violations or consistency_viols:
+        # Step 5b — brief fidelity (deterministic). Extract concrete
+        # constraints (required CTA, banned phrases, required phrases)
+        # from the user's brief and verify the storyboard honours them.
+        # CHAT_SYSTEM already tells the LLM to follow the brief verbatim;
+        # this is the safety net for when it doesn't.
+        brief_constraints = _extract_brief_constraints(user_msg)
+        fidelity_viols = _check_brief_fidelity(storyboard, brief_constraints)
+
+        if violations or consistency_viols or fidelity_viols:
             fix_user = user_payload + "\n\nYour previous draft was rejected. Address every issue below and re-emit a clean storyboard:\n"
             if violations:
                 fix_user += "\n# Keyword guardrail violations:\n" + "\n".join(f"- {v}" for v in violations)
@@ -372,19 +527,24 @@ def chat_turn(session_id: str, user_msg: str) -> dict[str, Any]:
                 fix_user += "\n# Brand-manual consistency violations:\n" + "\n".join(
                     f"- rule: {v.get('rule')} — issue: {v.get('issue')}" for v in consistency_viols
                 )
+            if fidelity_viols:
+                fix_user += "\n# Brief fidelity violations (the brief is GROUND TRUTH — these are NOT optional):\n" + "\n".join(
+                    f"- {v.get('issue')}\n  Fix: {v.get('suggestion')}" for v in fidelity_viols
+                )
             raw2 = call_claude(system=CHAT_SYSTEM, user=fix_user, json_mode=True, max_tokens=1800)
             if isinstance(raw2, dict) and raw2.get("action") == "storyboard":
                 storyboard = raw2.get("storyboard") or storyboard
-                # Re-run the consistency check on the revised draft so the
-                # final payload reflects the freshest assessment.
+                # Re-run every check on the revised draft so the final
+                # payload reflects the freshest assessment.
                 consistency_viols = _check_brand_consistency(storyboard, manual_text or "")
+                fidelity_viols = _check_brief_fidelity(storyboard, brief_constraints)
 
         # Step 6 — Eval (CTR estimate + brand-safety self-check).
         # Heuristic-only, runs on every storyboard turn, deterministic
         # and free of extra LLM cost.
         eval_result = _evaluate_storyboard_live(
             storyboard,
-            has_violations=bool(consistency_viols),
+            has_violations=bool(consistency_viols or fidelity_viols),
         )
 
         summary = raw.get("summary") or "Here's a draft storyboard for your ad."
@@ -396,6 +556,8 @@ def chat_turn(session_id: str, user_msg: str) -> dict[str, Any]:
         }
         if consistency_viols:
             payload["brand_consistency_warnings"] = consistency_viols
+        if fidelity_viols:
+            payload["brief_fidelity_warnings"] = fidelity_viols
         storage.add_message(
             session_id=session_id,
             role="assistant",
@@ -407,6 +569,7 @@ def chat_turn(session_id: str, user_msg: str) -> dict[str, Any]:
             "summary": summary,
             "storyboard": storyboard,
             "brand_consistency_warnings": consistency_viols,
+            "brief_fidelity_warnings": fidelity_viols,
             "eval": eval_result,
         }
 
