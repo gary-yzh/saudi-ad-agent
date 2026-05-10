@@ -68,12 +68,18 @@
             <input id="openai_model" name="openai_model" type="text" placeholder="gpt-4o-mini">
           </label>
         </div>
-        <p class="api-hint">
-          Common base URLs:
-          <code>https://dashscope.aliyuncs.com/compatible-mode/v1</code> (Qwen),
-          <code>https://ark.cn-beijing.volces.com/api/v3</code> (Doubao),
-          <code>https://api.openai.com/v1</code>.
-        </p>
+        <div class="api-presets" data-target="openai_base_url">
+          <span class="api-presets-label">Quick fill</span>
+          <button type="button" class="api-preset-chip"
+                  data-fill="https://dashscope.aliyuncs.com/compatible-mode/v1"
+                  title="Fill Base URL with https://dashscope.aliyuncs.com/compatible-mode/v1">Qwen</button>
+          <button type="button" class="api-preset-chip"
+                  data-fill="https://ark.cn-beijing.volces.com/api/v3"
+                  title="Fill Base URL with https://ark.cn-beijing.volces.com/api/v3">Doubao</button>
+          <button type="button" class="api-preset-chip"
+                  data-fill="https://api.openai.com/v1"
+                  title="Fill Base URL with https://api.openai.com/v1">OpenAI</button>
+        </div>
       </section>
 
       <!-- Image + Video section --------------------------------------------->

@@ -420,6 +420,58 @@ em.req {
   border: 1px solid var(--gold);
 }
 
+/* Quick-fill preset chips beneath an input. Apple-style: tiny label,
+   small pill chips, click autofills the target field and pulses it so
+   the connection is visible. Replaces the old prose api-hint that
+   listed three URLs inline (unclear it was actionable). */
+.api-presets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+.api-presets-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-right: 4px;
+}
+.api-preset-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.api-preset-chip:hover {
+  background: var(--emerald-light);
+  color: var(--emerald);
+}
+.api-preset-chip:active {
+  background: var(--emerald);
+  color: white;
+}
+
+/* Brief emerald pulse on the input that just got autofilled, so the
+   click-to-fill connection is unambiguous. */
+@keyframes input-flash {
+  0%   { box-shadow: 0 0 0 4px var(--emerald-light); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.input-flash {
+  animation: input-flash 0.6s ease-out 1;
+}
+
 .ds-advanced { margin-top: 6px; }
 .ds-advanced > summary {
   font-size: 11px;

@@ -92,6 +92,28 @@ function showToast(text, kind = "ok") {
     el.addEventListener("change", refreshStatusBadges);
   });
 
+  // Quick-fill preset chips. Each lives inside an .api-presets container
+  // whose data-target points at the input field to fill. Clicking the chip
+  // autofills the URL and briefly pulses the field so the user sees the
+  // connection.
+  document.querySelectorAll(".api-presets").forEach((group) => {
+    const targetId = group.dataset.target;
+    const target = $(targetId);
+    if (!target) return;
+    group.querySelectorAll(".api-preset-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const url = chip.dataset.fill || "";
+        if (!url) return;
+        target.value = url;
+        target.dispatchEvent(new Event("input", { bubbles: true }));
+        target.classList.remove("input-flash");
+        // Re-trigger the animation by forcing a reflow before re-adding the class
+        void target.offsetWidth;
+        target.classList.add("input-flash");
+      });
+    });
+  });
+
   // Load saved config
   try {
     const r = await fetch("/api/config");
