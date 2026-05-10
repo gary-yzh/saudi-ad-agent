@@ -1324,17 +1324,55 @@ button.secondary:active {
   gap: 10px;
   align-items: end;
 }
+.chat-input-wrap {
+  position: relative;
+  /* Container so the resize button can sit in the textarea's bottom-right
+     corner without disturbing grid layout. */
+}
 .chat-form textarea {
+  display: block;
+  width: 100%;
   resize: vertical;
   min-height: 96px;            /* roomier default — fits ~4 lines without scroll */
   font-family: inherit;
   font-size: 14px;
   line-height: 1.55;
   padding: 12px 14px;
+  padding-right: 40px;          /* room for the ⤢ resize button */
   border-radius: 10px;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, min-height 0.2s;
+}
+/* Compact mode — engaged after the first storyboard. Refines are typically
+   short ("more close-ups", "darker palette"); the towering 96-px textarea
+   would dominate the chat. User can click ⤢ to expand back. */
+.chat-form textarea.chat-input-compact {
+  min-height: 56px;
+}
+.chat-input-resize-btn {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.chat-input-resize-btn:hover {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--text);
 }
 .chat-form textarea::placeholder {
   color: var(--muted);

@@ -33,7 +33,7 @@ Working professionals across the GCC, ages 25–45. Coffee-aware, appreciate cra
 Specialty coffee, hand-picked at origin — your daily ritual, redefined.
 
 4. DELIVERABLE
-9:16 vertical short-form video, ≤15 seconds. English voiceover with burn-in English captions, warm-tone palette.
+9:16 vertical short-form video, ≤30 seconds. English voiceover with burn-in English captions, warm-tone palette.
 
 5. VISUAL DIRECTION
 Product-led: foil bag hero shots, brewing close-ups (pour, crema, rising steam). Soft daylight, warm palette. No people in frame. No specific cultural settings.
@@ -119,6 +119,11 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
   $("redraft-storyboard-btn").addEventListener("click", onRedraftStoryboard);
   $("generate-video-btn").addEventListener("click", onGenerateVideo);
   $("new-session-btn").addEventListener("click", onNewSession);
+  // Compact ↔ expanded toggle for the chat textarea.
+  $("chat-input-resize").addEventListener("click", () => {
+    const ti = $("chat-input");
+    setChatInputCompact(!ti.classList.contains("chat-input-compact"));
+  });
 
   // Brand manual chip is static (lives in the brief panel) — bind directly.
   wireAssetChip({
@@ -201,12 +206,31 @@ function autosizeChatInput() {
   const ti = $("chat-input");
   if (!ti) return;
   ti.style.height = "auto";
-  // Cap raised from 320 → 480 so the full sample brief (6 sections,
-  // ~18 lines) fits without an inner scrollbar on first load. If the
-  // user keeps typing past 480 px the textarea scrolls — same as
-  // Apple Mail's compose body.
-  const cap = 480;
+  // Two height regimes:
+  //  • Initial / expanded mode — fits the full sample brief (~18 lines)
+  //    without inner scroll. ~480 px cap.
+  //  • Compact mode (after first storyboard) — short refines are the
+  //    norm; cap at ~140 px so the textarea doesn't dominate. Expand
+  //    button restores the 480-px ceiling on demand.
+  const compact = ti.classList.contains("chat-input-compact");
+  const cap = compact ? 140 : 480;
   ti.style.height = Math.min(ti.scrollHeight, cap) + "px";
+}
+
+// Toggle the chat textarea between compact (post-first-storyboard) and
+// expanded (default / full size). Updates the button icon + tooltip
+// to telegraph the next action.
+function setChatInputCompact(compact) {
+  const ti = $("chat-input");
+  const btn = $("chat-input-resize");
+  if (!ti) return;
+  ti.classList.toggle("chat-input-compact", compact);
+  if (btn) {
+    btn.textContent = compact ? "⤢" : "⤡";
+    btn.title = compact ? "Expand input" : "Collapse input";
+    btn.setAttribute("aria-label", btn.title);
+  }
+  autosizeChatInput();
 }
 
 function wireAssetChip({ chipId, inputId, removeId, onPick, onRemove }) {
@@ -403,6 +427,8 @@ function restoreView(view) {
     // placeholder that says "Type your brief" which is no longer accurate.
     $("chat-input").placeholder =
       "Refine the storyboard, or click Confirm below to generate stills.";
+    // Same compact mode as fresh storyboard arrival.
+    setChatInputCompact(true);
   }
   if (shot_images.length) {
     showImageGrid(session.storyboard?.shots || [], shot_images);
@@ -486,6 +512,9 @@ async function onSendMessage(e) {
       // also a Confirm button below to commit.
       $("chat-input").placeholder =
         "Refine the storyboard, or click Confirm below to generate stills.";
+      // Collapse the textarea to compact size — most refines are short.
+      // User can hit the ⤢ button to expand back for a major rewrite.
+      setChatInputCompact(true);
     }
   } catch (err) {
     removeChatPending(pendingId);
@@ -921,7 +950,10 @@ function showVideoPanel(v) {
 
   if (v.status === "succeeded" && v.local_url) {
     $("video-ready").classList.remove("hidden");
-    $("video-preview").src = v.local_url;
+    const videoEl = $("video-preview");
+    const audioEl = $("video-audio");
+    const audioStatus = $("video-audio-status");
+    videoEl.src = v.local_url;
     $("video-local-url").href = v.local_url;
     $("video-local-url").textContent = v.local_url;
     const meta = v.metadata_json ? JSON.parse(v.metadata_json) : null;
@@ -932,6 +964,12 @@ function showVideoPanel(v) {
       if (meta.ratio) pieces.push(meta.ratio);
       if (meta.model) pieces.push(meta.model);
       $("video-stats").textContent = pieces.join(" · ");
+
+      // Voiceover wiring. Seedance renders silent video; the TTS audio is
+      // a separate file produced by Doubao OpenSpeech. We play them in
+      // sync via two HTML elements rather than server-side ffmpeg merge —
+      // simpler to ship and good enough for review.
+      wireVoiceoverSync(videoEl, audioEl, audioStatus, meta);
     }
   } else if (v.status === "failed") {
     $("video-error").classList.remove("hidden");
@@ -939,6 +977,57 @@ function showVideoPanel(v) {
   } else {
     $("video-loading").classList.remove("hidden");
   }
+}
+
+// Sync the TTS audio element to the video's playback state so the user
+// hears the voiceover alongside the silent Seedance video. Browser-level
+// merge — no server-side ffmpeg required. Video controls are the master;
+// audio just follows. The whole panel re-renders during polling, so we
+// guard with a _voSyncWired flag to bind listeners only once per element.
+function wireVoiceoverSync(videoEl, audioEl, audioStatus, meta) {
+  audioStatus.classList.add("hidden");
+  audioStatus.textContent = "";
+
+  if (meta?.audio_error) {
+    audioStatus.classList.remove("hidden");
+    audioStatus.textContent =
+      "⚠ Voiceover couldn't be generated — playing silent. " +
+      "(Check that the configured TTS speaker matches the brief's language.)";
+    audioEl.removeAttribute("src");
+    return;
+  }
+  if (!meta?.audio_url) {
+    // No voiceover text in storyboard, or TTS was skipped
+    audioEl.removeAttribute("src");
+    return;
+  }
+
+  // Update audio source if it changed (re-renders are common during polling)
+  if (audioEl.getAttribute("src") !== meta.audio_url) {
+    audioEl.src = meta.audio_url;
+    audioEl.load();
+  }
+
+  // Bind sync listeners exactly once on this video element
+  if (videoEl._voSyncWired) return;
+  videoEl._voSyncWired = true;
+
+  videoEl.addEventListener("play", () => {
+    audioEl.currentTime = videoEl.currentTime;
+    audioEl.play().catch(() => {});
+  });
+  videoEl.addEventListener("pause", () => audioEl.pause());
+  videoEl.addEventListener("seeked", () => {
+    audioEl.currentTime = videoEl.currentTime;
+  });
+  videoEl.addEventListener("ratechange", () => {
+    audioEl.playbackRate = videoEl.playbackRate;
+  });
+  videoEl.addEventListener("ended", () => audioEl.pause());
+  videoEl.addEventListener("volumechange", () => {
+    audioEl.muted = videoEl.muted;
+    audioEl.volume = videoEl.volume;
+  });
 }
 
 function startVideoPolling() {

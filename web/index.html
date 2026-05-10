@@ -122,7 +122,15 @@
         </div>
 
         <form id="chat-form" class="chat-form">
-          <textarea id="chat-input" rows="4" placeholder="Type your brief, or answer the agent's question. Press Enter to send · Shift+Enter for a new line."></textarea>
+          <div class="chat-input-wrap">
+            <textarea id="chat-input" rows="4" placeholder="Type your brief, or answer the agent's question. Press Enter to send · Shift+Enter for a new line."></textarea>
+            <!-- Toggle compact ↔ expanded textarea height. After the first
+                 storyboard arrives, the textarea collapses to a small height
+                 (most replies are short refines); click this to expand back
+                 for a major rewrite. -->
+            <button type="button" id="chat-input-resize" class="chat-input-resize-btn"
+                    title="Expand input" aria-label="Expand input">⤢</button>
+          </div>
           <button type="submit" id="chat-send" disabled>Send</button>
         </form>
 
@@ -243,6 +251,12 @@
 
         <div id="video-ready" class="video-ready hidden">
           <video id="video-preview" controls preload="metadata"></video>
+          <!-- Hidden audio element holding the TTS voiceover. Seedance renders
+               silent video; we sync this audio with the video's play/pause/seek
+               events in JS so the user actually hears the brief's voiceover.
+               Browser-level merge instead of server-side ffmpeg merge. -->
+          <audio id="video-audio" preload="auto" style="display:none"></audio>
+          <p id="video-audio-status" class="muted small hidden"></p>
           <div class="video-meta">
             <a id="video-local-url" target="_blank" rel="noopener" class="asset-url">—</a>
             <span class="muted small" id="video-stats">—</span>

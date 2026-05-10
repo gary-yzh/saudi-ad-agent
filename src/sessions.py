@@ -933,13 +933,40 @@ def _gen_video(session_id: str, selected_ids: list[int]) -> None:
             meta_extra["auto_soften_attempts"] = softening_history
             meta_extra["motion_prompt_used"] = current_motion_prompt[:1500]
 
+        # Generate the voiceover audio from storyboard.voiceover so the user
+        # actually hears speech alongside the video. Seedance only renders
+        # silent video — TTS is a separate Doubao service. Without this,
+        # users got a silent clip even though their brief said "with English
+        # voiceover". TTS failure is non-fatal; we serve the silent video
+        # and tell the UI the audio is missing.
+        voiceover_text = (storyboard.get("voiceover") or "").strip()
+        audio_url: str | None = None
+        if voiceover_text:
+            try:
+                audio_result = _run_with_config(
+                    apis.seed_speech_generate,
+                    text=voiceover_text,
+                    locale=session.get("locale") or None,
+                    run_id=session_id,
+                )
+                audio_url = audio_result.get("url")
+                meta_extra["audio_url"] = audio_url
+                meta_extra["audio_duration_s"] = audio_result.get("duration_s")
+                meta_extra["audio_voice"] = audio_result.get("voice")
+            except Exception as e:
+                # Most common failure: speaker / language mismatch (e.g. a
+                # zh-* voice asked to speak English). Keep going; the UI
+                # will play the silent video and show a small note.
+                meta_extra["audio_error"] = str(e)[:300]
+                print(f"[video {session_id}] TTS failed (non-fatal): {e}", flush=True)
+
         storage.upsert_video(
             session_id=session_id,
             selected_shot_ids=selected_ids,
             status="succeeded",
             remote_url=remote_url,
             local_url=local_url,
-            metadata=meta_extra,
+            metadata=meta_extra,  # audio_url lives here as meta_extra["audio_url"]
         )
         storage.update_session_state(session_id, "video_done")
     except Exception as e:
