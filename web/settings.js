@@ -92,23 +92,26 @@ function showToast(text, kind = "ok") {
     el.addEventListener("change", refreshStatusBadges);
   });
 
-  // Quick-fill preset chips. Each lives inside an .api-presets container
-  // whose data-target points at the input field to fill. Clicking the chip
-  // autofills the URL and briefly pulses the field so the user sees the
-  // connection.
-  document.querySelectorAll(".api-presets").forEach((group) => {
-    const targetId = group.dataset.target;
-    const target = $(targetId);
-    if (!target) return;
-    group.querySelectorAll(".api-preset-chip").forEach((chip) => {
-      chip.addEventListener("click", () => {
-        const url = chip.dataset.fill || "";
-        if (!url) return;
-        target.value = url;
+  // Quick-fill preset chips. Each chip carries a JSON map in data-presets:
+  //   { "<input-id>": "<value>", "<input-id>": "<value>", ... }
+  // Click → fill every named field at once + pulse each one so the user
+  // sees what changed. Lets a single chip fill coupled fields like Base
+  // URL + Model together (a Doubao chip should set both, not just one).
+  document.querySelectorAll(".api-preset-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      let presets;
+      try {
+        presets = JSON.parse(chip.dataset.presets || "{}");
+      } catch {
+        return;
+      }
+      Object.entries(presets).forEach(([id, value]) => {
+        const target = $(id);
+        if (!target) return;
+        target.value = value;
         target.dispatchEvent(new Event("input", { bubbles: true }));
         target.classList.remove("input-flash");
-        // Re-trigger the animation by forcing a reflow before re-adding the class
-        void target.offsetWidth;
+        void target.offsetWidth;  // force reflow so the animation re-fires
         target.classList.add("input-flash");
       });
     });

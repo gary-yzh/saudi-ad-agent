@@ -68,17 +68,17 @@
             <input id="openai_model" name="openai_model" type="text" placeholder="gpt-4o-mini">
           </label>
         </div>
-        <div class="api-presets" data-target="openai_base_url">
+        <div class="api-presets">
           <span class="api-presets-label">Quick fill</span>
           <button type="button" class="api-preset-chip"
-                  data-fill="https://dashscope.aliyuncs.com/compatible-mode/v1"
-                  title="Fill Base URL with https://dashscope.aliyuncs.com/compatible-mode/v1">Qwen</button>
+                  data-presets='{"openai_base_url":"https://dashscope.aliyuncs.com/compatible-mode/v1","openai_model":"qwen-plus"}'
+                  title="Set Base URL and Model for Alibaba Qwen (DashScope)">Qwen</button>
           <button type="button" class="api-preset-chip"
-                  data-fill="https://ark.cn-beijing.volces.com/api/v3"
-                  title="Fill Base URL with https://ark.cn-beijing.volces.com/api/v3">Doubao</button>
+                  data-presets='{"openai_base_url":"https://ark.cn-beijing.volces.com/api/v3","openai_model":"doubao-1-5-pro-32k"}'
+                  title="Set Base URL and Model for ByteDance Doubao (Volcengine Ark)">Doubao</button>
           <button type="button" class="api-preset-chip"
-                  data-fill="https://api.openai.com/v1"
-                  title="Fill Base URL with https://api.openai.com/v1">OpenAI</button>
+                  data-presets='{"openai_base_url":"https://api.openai.com/v1","openai_model":"gpt-4o-mini"}'
+                  title="Set Base URL and Model for OpenAI">OpenAI</button>
         </div>
       </section>
 
@@ -192,27 +192,32 @@
           <input id="tts_speaker" name="tts_speaker" type="text" placeholder="zh_female_shuangkuaisisi_moon_bigtts">
         </label>
 
-        <div class="api-subhead">Delivery</div>
-        <div class="api-row">
-          <label class="api-label">
-            <span>Speech rate <em class="muted">(-50 → 100)</em></span>
-            <input id="tts_speech_rate" name="tts_speech_rate" type="number" min="-50" max="100" step="1" placeholder="0">
-          </label>
-          <label class="api-label">
-            <span>Loudness rate <em class="muted">(-50 → 100)</em></span>
-            <input id="tts_loudness_rate" name="tts_loudness_rate" type="number" min="-50" max="100" step="1" placeholder="0">
-          </label>
-        </div>
-        <div class="api-row">
-          <label class="api-label">
-            <span>Emotion</span>
-            <input id="tts_emotion" name="tts_emotion" type="text" placeholder="e.g. happy, angry, calm">
-          </label>
-          <label class="api-label">
-            <span>Emotion scale <em class="muted">(1 → 5)</em></span>
-            <input id="tts_emotion_scale" name="tts_emotion_scale" type="number" min="1" max="5" step="1" placeholder="4">
-          </label>
-        </div>
+        <details class="settings-advanced">
+          <summary>
+            <span class="settings-advanced-label">Advanced delivery</span>
+            <span class="settings-advanced-hint">Speech rate, loudness, emotion. Defaults work for most cases.</span>
+          </summary>
+          <div class="api-row">
+            <label class="api-label">
+              <span>Speech rate <em class="muted">(-50 → 100)</em></span>
+              <input id="tts_speech_rate" name="tts_speech_rate" type="number" min="-50" max="100" step="1" placeholder="0">
+            </label>
+            <label class="api-label">
+              <span>Loudness rate <em class="muted">(-50 → 100)</em></span>
+              <input id="tts_loudness_rate" name="tts_loudness_rate" type="number" min="-50" max="100" step="1" placeholder="0">
+            </label>
+          </div>
+          <div class="api-row">
+            <label class="api-label">
+              <span>Emotion</span>
+              <input id="tts_emotion" name="tts_emotion" type="text" placeholder="e.g. happy, angry, calm">
+            </label>
+            <label class="api-label">
+              <span>Emotion scale <em class="muted">(1 → 5)</em></span>
+              <input id="tts_emotion_scale" name="tts_emotion_scale" type="number" min="1" max="5" step="1" placeholder="4">
+            </label>
+          </div>
+        </details>
       </section>
 
       <div class="settings-actions">

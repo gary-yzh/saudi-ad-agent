@@ -22,7 +22,7 @@
       </svg>
       <div>
         <h1>E-commerce Ad Generation AI Agent</h1>
-        <p class="subtitle">From brief to finished ad, in four guided steps.</p>
+        <p class="subtitle">Generate 9:16 short-form video ads from a brief.</p>
       </div>
     </div>
     <nav class="nav">
@@ -40,6 +40,7 @@
 
     <!-- ============ LEFT: vertical step nav ============ -->
     <aside class="stepper" id="stepper" aria-label="Workflow progress">
+      <p class="stepper-intro">From brief to finished ad, in four guided steps.</p>
       <ol>
         <li class="step" data-step="brief">
           <span class="step-marker">1</span>
@@ -79,11 +80,36 @@
       <section class="card chat-panel">
         <header class="panel-head">
           <h2><span class="step-num">1</span> Brief</h2>
-          <div class="brief-assets" id="brief-assets" title="Optional brand input the planner will use when drafting the storyboard">
-            <!-- Brand manual stays here — the planner reads it BEFORE the storyboard is drafted -->
-            <button type="button" class="asset-chip is-empty" id="pdf-chip" data-asset="pdf" title="Upload the brand manual PDF — the planner uses it as context (palette, modesty rules, sign-off …)">
-              <span class="asset-chip-icon">📄</span>
-              <span class="asset-chip-label asset-chip-empty-label">Add Brand Manual</span>
+        </header>
+
+        <div id="brief-asset-error" class="brief-asset-error hidden"></div>
+
+        <div id="chat-empty" class="chat-empty">
+          <h3 class="chat-empty-title">Start with a quick brief</h3>
+          <p class="chat-empty-sub">Describe the product, audience, and tone.</p>
+          <button type="button" id="load-sample" class="chat-empty-sample-btn">
+            Load &lsquo;Ajwa dates&rsquo; sample
+          </button>
+        </div>
+
+        <ol id="chat-log" class="chat-log"></ol>
+
+        <form id="chat-form" class="chat-form">
+          <textarea id="chat-input" rows="4" placeholder="Type your brief, or answer the agent's question. Press Enter to send · Shift+Enter for a new line."></textarea>
+          <button type="submit" id="chat-send" disabled>Send</button>
+        </form>
+
+        <!-- Apple-style "compose meta" row below the input: optional
+             brand-manual attachment on the left (next to the input it
+             affects), voiceover hint on the right. Mirrors Apple Mail's
+             compose pattern (attachment + send actions stacked under
+             the body) more than a header chip. -->
+        <div class="chat-form-meta">
+          <div class="brief-assets" id="brief-assets">
+            <button type="button" class="asset-chip is-empty brief-attach-chip" id="pdf-chip" data-asset="pdf"
+                    title="Optional. Upload a brand manual PDF — the planner reads it as context (palette, tone, modesty rules, sign-off…) before drafting the storyboard.">
+              <span class="asset-chip-icon">＋</span>
+              <span class="asset-chip-label asset-chip-empty-label">Brand manual <span class="asset-chip-hint">PDF, optional</span></span>
               <span class="asset-chip-loaded-wrap hidden">
                 <span class="asset-chip-check">✓</span>
                 <span class="asset-chip-name" id="pdf-chip-name"></span>
@@ -92,32 +118,11 @@
               <input type="file" id="brand-rag-file" accept="application/pdf,.pdf" hidden>
             </button>
           </div>
-        </header>
-
-        <div id="brief-asset-error" class="brief-asset-error hidden"></div>
-
-        <div id="chat-empty" class="chat-empty">
-          <h3 class="chat-empty-title">Start with a quick brief</h3>
-          <p class="chat-empty-sub">We'll ask follow-ups if we need more detail.</p>
-          <button type="button" id="load-sample" class="chat-empty-sample-btn">
-            Load &lsquo;Ajwa dates&rsquo; sample
-          </button>
+          <p id="voiceover-info" class="form-hint" hidden>
+            Voiceover will be in <strong id="voiceover-info-lang">English (US)</strong>
+            — <a href="/settings#tts_speaker_row">change speaker</a>
+          </p>
         </div>
-
-
-        <ol id="chat-log" class="chat-log"></ol>
-
-        <form id="chat-form" class="chat-form">
-          <textarea id="chat-input" rows="4" placeholder="Type your brief, or answer the agent's question. Press Enter to send · Shift+Enter for a new line."></textarea>
-          <button type="submit" id="chat-send" disabled>Send</button>
-        </form>
-        <!-- Tucked-under hint: voiceover language is auto-derived from the
-             configured TTS speaker. Click the link to anchor-jump to that
-             field in Settings. Hidden until we know what the locale is. -->
-        <p id="voiceover-info" class="form-hint" hidden>
-          Voiceover will be in <strong id="voiceover-info-lang">English (US)</strong>
-          — <a href="/settings#tts_speaker_row">change speaker</a>
-        </p>
       </section>
 
       <!-- Step 2: Storyboard -->

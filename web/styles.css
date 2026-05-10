@@ -472,6 +472,53 @@ em.req {
   animation: input-flash 0.6s ease-out 1;
 }
 
+/* Apple-style disclosure for power-user settings. Closed by default —
+   95% of users never touch speech rate / emotion. Opening it reveals
+   the advanced fields with the same .api-row layout as the basics. */
+.settings-advanced {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-soft);
+}
+.settings-advanced > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  list-style: none;
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+}
+.settings-advanced > summary::-webkit-details-marker { display: none; }
+.settings-advanced > summary::before {
+  content: "›";
+  display: inline-block;
+  width: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+  transform: translateY(-1px);
+}
+.settings-advanced[open] > summary::before {
+  transform: rotate(90deg) translateX(-1px);
+}
+.settings-advanced-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.005em;
+}
+.settings-advanced-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+.settings-advanced > .api-row,
+.settings-advanced > .api-label {
+  margin-top: 16px;
+}
+.settings-advanced[open] > summary { margin-bottom: 4px; }
+
 .ds-advanced { margin-top: 6px; }
 .ds-advanced > summary {
   font-size: 11px;
@@ -1604,9 +1651,17 @@ button.secondary:hover {
   padding: 18px 0;
   box-shadow: var(--shadow);
 }
-/* (No stepper-intro paragraph. Apple-style: numbered steps are
-   self-describing — adding an "in four steps" preamble above 1/2/3/4
-   is redundant chrome.) */
+/* Workflow tagline at the top of the stepper. Sits next to the steps
+   it describes — the explanation hugs its referent rather than
+   floating in the global header. */
+.stepper-intro {
+  margin: 0 18px 16px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
 .stepper ol {
   list-style: none;
   margin: 0;
@@ -1731,10 +1786,66 @@ button.secondary:hover {
   box-shadow: 0 0 0 3px var(--emerald-light);
 }
 
+/* "Compose meta" row beneath the chat input. Mirrors Apple Mail's
+   compose pattern — the optional attachment lives next to the input
+   it scopes (not in a header chip far away). Voiceover hint sits on
+   the opposite side, balancing the row visually. */
+.chat-form-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.chat-form-meta .brief-assets {
+  margin: 0;
+  display: flex;
+  gap: 8px;
+}
+
+/* Quieter chip variant for the attach button when it lives below the
+   input. No shadow, dashed border to telegraph "add this if you have
+   it", small + icon, secondary label tone. */
+.brief-attach-chip {
+  background: transparent;
+  border: 1px dashed var(--border-soft-strong);
+  box-shadow: none;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.brief-attach-chip:hover {
+  border-style: solid;
+  border-color: var(--emerald);
+  color: var(--emerald);
+  background: var(--emerald-light);
+}
+.brief-attach-chip.is-loaded {
+  border-style: solid;
+  border-color: var(--success);
+  background: #E0F2E5;
+  color: var(--success);
+}
+.brief-attach-chip .asset-chip-icon {
+  font-size: 13px;
+  font-weight: 600;
+  margin-right: 2px;
+}
+.brief-attach-chip .asset-chip-hint {
+  margin-left: 6px;
+  font-weight: 400;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.brief-attach-chip:hover .asset-chip-hint,
+.brief-attach-chip.is-loaded .asset-chip-hint { color: inherit; opacity: 0.8; }
+
 /* Single-line hint tucked under the chat form. No box, no chrome — just
    small grey text. Apple-style. */
 .form-hint {
-  margin: 8px 0 0;
+  margin: 0;
   padding: 0;
   font-size: 12px;
   color: var(--muted);
@@ -1902,10 +2013,12 @@ button.secondary:hover {
 
 .panel-head { gap: 12px; }
 
+/* (Default .brief-assets layout — overridden by .chat-form-meta when
+   the chip sits inline below the input. Kept for the storyboard
+   sign-off chip's container.) */
 .brief-assets {
   display: flex;
   gap: 8px;
-  margin-left: auto;
   flex-wrap: wrap;
 }
 
