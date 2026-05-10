@@ -17,26 +17,28 @@
 // (Objective → Audience → Key Message → Deliverable → Visual → Mandatories),
 // which in turn gives the planner LLM richer context to draft from.
 //
-// Product picked low-moderation-risk on purpose (premium coffee, packaging-
-// focused, no people in frame) so first-time users can run the whole
-// pipeline end-to-end without tripping Doubao's culturally-sensitive image /
-// video filters.
-const SAMPLE_BRIEF = `CAMPAIGN: Arabia Roast Q1 Launch
+// Product picked the lowest possible moderation risk profile so first-time
+// users can run the whole pipeline (Seedream + Seedance + TTS) end-to-end
+// without hitting Doubao's culturally-sensitive image / video filters.
+// Prior samples (Ajwa dates / Arabia Roast) still tripped on geo+context
+// edge cases — switched to a generic insulated-bottle product with no
+// geographic, cultural, or human references at all.
+const SAMPLE_BRIEF = `CAMPAIGN: HYDRA Q1 Launch
 
 1. OBJECTIVE
-Drive product-page visits and pre-orders for the new "Arabia Roast" single-origin medium-roast coffee bean collection.
+Drive product-page visits and pre-orders for the new HYDRA insulated stainless-steel water bottle.
 
 2. AUDIENCE
-Working professionals across the GCC, ages 25–45. Coffee-aware, appreciate craft, treat the morning ritual as a daily indulgence.
+Active urban professionals worldwide, ages 25–40, who care about hydration on the go and prefer reusable bottles over single-use plastic.
 
 3. KEY MESSAGE
-Specialty coffee, hand-picked at origin — your daily ritual, redefined.
+Cold for 24 hours, hot for 12 — your one bottle for everywhere.
 
 4. DELIVERABLE
-9:16 vertical short-form video, ≤30 seconds. English voiceover with burn-in English captions, warm-tone palette.
+9:16 vertical short-form video, ≤30 seconds. English voiceover with burn-in English captions. Clean, neutral palette.
 
 5. VISUAL DIRECTION
-Product-led: foil bag hero shots, brewing close-ups (pour, crema, rising steam). Soft daylight, warm palette. No people in frame. No specific cultural settings.
+Product-only studio shots: matte-black bottle on a clean light-grey surface, slow rotation, condensation droplets on a cold pour, the cap mechanism close-up. Soft daylight, minimal modern aesthetic. No people in frame. No specific cultural settings, no flags, no holidays.
 
 6. MANDATORIES
 Brand logo on the sign-off frame. CTA: "Shop now". Target product-page CTR ≥ 2.5%.`;

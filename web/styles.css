@@ -2190,10 +2190,12 @@ button.secondary:active {
   transition: background 0.15s;
 }
 .shot-refine-send:hover:not(:disabled) { background: var(--emerald-dark); }
+/* Disabled style mirrors #chat-send:disabled — same muted background,
+   same not-allowed cursor, NO opacity reduction. Earlier 0.6 opacity
+   made Apply look more "faded" than Send when both were disabled. */
 .shot-refine-send:disabled {
   background: var(--muted);
   cursor: not-allowed;
-  opacity: 0.6;
 }
 
 /* Broken-image fallback — Volcengine signed URLs from old sessions can
