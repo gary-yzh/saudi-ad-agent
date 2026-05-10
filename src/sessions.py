@@ -579,13 +579,16 @@ def _gen_one_shot(
     # Auto-soften retry loop. Doubao moderation is deterministic, so blind
     # retry won't help — but a softened prompt usually does. We try the
     # original first (so safe prompts keep their full creative specificity),
-    # then up to MAX_AUTO_RETRIES progressively softer rewrites. Only
-    # surface a failure to the user if every attempt is rejected — at that
-    # point manual rephrasing is the right next step anyway, and they
-    # see a friendly message instead of a raw Doubao error code.
+    # then up to MAX_AUTO_RETRIES progressively softer rewrites covering all
+    # four tiers (LIGHT → AGGRESSIVE → STRIP → NUCLEAR). With NUCLEAR being a
+    # product-aware deterministic template that Doubao essentially can't
+    # reject, the failure case is now extremely rare. The user no longer
+    # needs to click Retry just to escalate — the whole escalation ladder
+    # runs automatically. Worst case wait per shot is ~25s (5 Seedream
+    # calls + 2 LLM softenings), down from "fails forever" before.
     from .nodes.tool_use import _soften_prompt  # local import — avoids cycles
 
-    MAX_AUTO_RETRIES = 2
+    MAX_AUTO_RETRIES = 4
     result: dict | None = None
     softening_history: list[dict[str, Any]] = []
     last_exc: Exception | None = None

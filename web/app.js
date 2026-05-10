@@ -741,11 +741,14 @@ function renderImageCardInner(shot, st) {
 
   const failureClass = failed && /sensitive|moderation/i.test(st.error || "") ? " moderation-fail" : "";
 
-  // Per-image controls: refine box (when ok), retry button (when failed)
+  // Per-image controls: refine box (when ok), retry button (when failed).
+  // The Apply button starts disabled and only enables once the user has
+  // typed at least one non-whitespace character — same affordance as
+  // the main chat Send button, prevents empty-prompt API calls.
   const controls = succeeded
     ? `<form class="shot-refine" data-shot-id="${shot.id}">` +
       `<input type="text" class="shot-refine-input" placeholder="Tweak this shot — e.g. darker background, no people" maxlength="500">` +
-      `<button type="submit" class="shot-refine-send">Apply</button>` +
+      `<button type="submit" class="shot-refine-send" disabled>Apply</button>` +
       `</form>`
     : failed
     ? `<div class="shot-retry"><button type="button" class="shot-retry-btn" data-shot-id="${shot.id}">↻ Retry</button></div>`
@@ -772,7 +775,17 @@ function wireImageCardEvents(card) {
   const cb = card.querySelector("input[type=checkbox]");
   if (cb) cb.addEventListener("change", updateSelectionCount);
   const refineForm = card.querySelector(".shot-refine");
-  if (refineForm) refineForm.addEventListener("submit", onShotRefine);
+  if (refineForm) {
+    refineForm.addEventListener("submit", onShotRefine);
+    // Apply button gates on non-whitespace input — same pattern as Send.
+    const refineInput = refineForm.querySelector(".shot-refine-input");
+    const refineSend = refineForm.querySelector(".shot-refine-send");
+    if (refineInput && refineSend) {
+      refineInput.addEventListener("input", () => {
+        refineSend.disabled = refineInput.value.trim().length === 0;
+      });
+    }
+  }
   const retryBtn = card.querySelector(".shot-retry-btn");
   if (retryBtn) retryBtn.addEventListener("click", onShotRetry);
 }
@@ -821,7 +834,7 @@ function startImagePolling() {
     } catch (e) {
       console.warn("image poll error", e);
     }
-  }, 3000);
+  }, 1500);  // Was 3000 — tighter polling so fresh stills appear ~2x faster.
 }
 
 let _storyboardCache = null;
@@ -919,7 +932,7 @@ function startVideoPolling() {
     } catch (e) {
       console.warn("video poll error", e);
     }
-  }, 5000);
+  }, 3000);  // Was 5000 — tighter polling so video status surfaces faster.
 }
 
 // ---------- Asset chips (logo + brand manual) ------------------------------

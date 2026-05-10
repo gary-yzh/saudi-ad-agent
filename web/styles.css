@@ -2124,7 +2124,12 @@ button.secondary:active {
   cursor: pointer;
   transition: background 0.15s;
 }
-.shot-refine-send:hover { background: var(--emerald-dark); }
+.shot-refine-send:hover:not(:disabled) { background: var(--emerald-dark); }
+.shot-refine-send:disabled {
+  background: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
 
 /* Broken-image fallback — Volcengine signed URLs from old sessions can
    404 once they expire; img.onerror flips this class on. Collapse the
