@@ -1227,6 +1227,35 @@ button.secondary:active {
 }
 
 .chat-pending .chat-bubble { padding: 12px 14px; }
+
+/* Action chip on assistant messages — tells the user, at a glance,
+   whether the agent expects a reply or has dropped a storyboard for
+   them to review. Apple-style: small inline pill, restrained color,
+   no extra UI weight. */
+.chat-action-chip {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: help;
+}
+.chat-action-chip.chat-action-ready {
+  background: var(--emerald-light);
+  color: var(--emerald);
+}
+.chat-action-chip.chat-action-ask {
+  background: rgba(201, 162, 74, 0.15);  /* gold-tinted */
+  color: #8A6A1F;
+}
+/* Slight nudge: when the agent message has an action chip, move the
+   bubble's bottom-left corner radius back to the original 4px even with
+   the extra inline element so the bubble stays Apple-rounded. */
+.chat-assistant .chat-bubble:has(.chat-action-chip) {
+  padding-bottom: 12px;
+}
 .dots i {
   display: inline-block;
   width: 6px; height: 6px;

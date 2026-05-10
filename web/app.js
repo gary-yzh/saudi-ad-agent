@@ -369,6 +369,12 @@ function restoreView(view) {
     showStoryboard(session.storyboard, /* enableConfirm */ session.state === "storyboard_draft");
     if (lastWarnings) showConsistencyWarnings(lastWarnings);
     if (lastEval) showEval(lastEval);
+    // After reload, if a storyboard already exists, the chat input should
+    // reflect the "refine, or confirm below" mode — not the initial-brief
+    // placeholder. Without this, users coming back to a session see a
+    // placeholder that says "Type your brief" which is no longer accurate.
+    $("chat-input").placeholder =
+      "Refine the storyboard, or click Confirm below to generate stills.";
   }
   if (shot_images.length) {
     showImageGrid(session.storyboard?.shots || [], shot_images);
@@ -425,8 +431,11 @@ async function onSendMessage(e) {
 
     removeChatPending(pendingId);
     if (reply.action === "ask") {
-      renderChatMessage("assistant", reply.question);
+      renderChatMessage("assistant", reply.question, { action: "ask" });
       setStepperFromState("chat");
+      // Adapt the input hint so the user knows the agent is waiting on them.
+      $("chat-input").placeholder =
+        "Reply to the agent's question. Press Enter to send · Shift+Enter for a new line.";
     } else if (reply.action === "storyboard") {
       const intro = reply.summary || "Here's a draft storyboard.";
       renderChatMessage("assistant", intro, { action: "storyboard" });
@@ -437,6 +446,18 @@ async function onSendMessage(e) {
       showConsistencyWarnings(reply.brand_consistency_warnings || []);
       if (reply.eval) showEval(reply.eval);
       setStepperFromState("storyboard_draft");
+
+      // Smooth-scroll the user's eye to the new storyboard panel — without
+      // this, they'd see "Storyboard ready ↓" in the chat but might not
+      // notice the panel appearing below the fold.
+      setTimeout(() => {
+        $("storyboard-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 250);
+
+      // Adapt the input hint: from here, typing means "refine", and there's
+      // also a Confirm button below to commit.
+      $("chat-input").placeholder =
+        "Refine the storyboard, or click Confirm below to generate stills.";
     }
   } catch (err) {
     removeChatPending(pendingId);
@@ -512,9 +533,23 @@ function showConsistencyWarnings(warnings) {
 function renderChatMessage(role, content, payload = null) {
   const li = document.createElement("li");
   li.className = `chat-msg chat-${role}` + (payload?.kind === "error" ? " chat-error" : "");
+
+  // Action chip on assistant messages — tells the user whether the agent
+  // wants more info or has produced something. Without it, users couldn't
+  // tell from the chat alone whether to keep typing or check the
+  // storyboard panel below.
+  let chip = "";
+  if (role === "assistant") {
+    if (payload?.action === "storyboard") {
+      chip = `<span class="chat-action-chip chat-action-ready" title="The draft storyboard is ready in the next panel below.">✓ Storyboard ready ↓</span>`;
+    } else if (payload?.action === "ask") {
+      chip = `<span class="chat-action-chip chat-action-ask" title="The agent needs more detail before it can produce a storyboard. Reply in the chat box below.">? Needs your reply</span>`;
+    }
+  }
+
   li.innerHTML =
     `<span class="chat-role">${role === "user" ? "You" : "Agent"}</span>` +
-    `<div class="chat-bubble">${escapeHtml(content)}</div>`;
+    `<div class="chat-bubble">${escapeHtml(content)}${chip}</div>`;
   $("chat-log").appendChild(li);
   li.scrollIntoView({ behavior: "smooth", block: "end" });
   return li;

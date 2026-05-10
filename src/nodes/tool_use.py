@@ -156,6 +156,76 @@ _GENERIC_PRODUCT_PROMPT = (
     "cultural or religious markers."
 )
 
+# Product-keyword → noun phrase used in the nuclear template. When all
+# softening fails, we want to keep the PRODUCT TYPE (perfume, dates, coffee...)
+# in the prompt so Seedream doesn't hallucinate a random white smart-speaker
+# in place of, say, a herdsman scene that was originally about fresh dates.
+# Order matters: more specific phrases first so "oud perfume" beats "perfume".
+_PRODUCT_KEYWORDS: tuple[tuple[str, str], ...] = (
+    ("oud perfume",  "luxury oud perfume bottle"),
+    ("perfume",      "perfume bottle"),
+    ("cologne",      "cologne bottle"),
+    ("fragrance",    "fragrance bottle"),
+    ("ajwa",         "premium Ajwa dates package"),
+    ("date palm",    "date palm tree"),
+    ("dates",        "premium dates package"),
+    ("coffee",       "specialty coffee package"),
+    ("tea",          "premium tea package"),
+    ("watch",        "luxury watch"),
+    ("phone",        "smartphone"),
+    ("laptop",       "laptop"),
+    ("shoe",         "pair of shoes"),
+    ("sneaker",      "pair of sneakers"),
+    ("bag",          "leather handbag"),
+    ("jewelry",      "jewelry piece"),
+    ("necklace",     "necklace"),
+    ("bracelet",     "bracelet"),
+    ("car",          "car"),
+    ("dress",        "designer dress"),
+    ("skincare",     "skincare bottle"),
+    ("cream",        "skincare cream jar"),
+    ("milk",         "carton of milk"),
+    ("honey",        "jar of honey"),
+    ("oil",          "bottle of oil"),
+    ("chocolate",    "box of chocolates"),
+    ("cookie",       "package of cookies"),
+)
+
+
+def _detect_product_phrase(text: str) -> str | None:
+    """Look for a product keyword in `text` and return a clean noun phrase
+    suitable for inclusion in a product-only prompt. Returns None if no
+    known keyword matches."""
+    lower = text.lower()
+    for keyword, phrase in _PRODUCT_KEYWORDS:
+        if keyword in lower:
+            return phrase
+    return None
+
+
+def _build_nuclear_template(original: str) -> str:
+    """Compose a guaranteed-safe product-only prompt that PRESERVES the
+    product type from the original. Without this, the fixed _GENERIC_PRODUCT_PROMPT
+    would cause Seedream to render a random "advertised item" — typically a
+    white smart-speaker-looking object — in place of the actual product.
+
+    Example:
+        in:  "An Arab male herdsman in his 30s, wearing a white thobe, gently
+              collecting fresh Ajwa dates from a date palm at dawn"
+        out: "A clean modern close-up product shot of premium Ajwa dates
+              package, on a neutral surface with soft daylight, 9:16 vertical
+              aspect ratio, no people, no specific cultural or religious
+              markers."
+    """
+    phrase = _detect_product_phrase(original)
+    if not phrase:
+        return _GENERIC_PRODUCT_PROMPT
+    return (
+        f"A clean modern close-up product shot of a {phrase}, on a neutral "
+        f"surface with soft daylight, 9:16 vertical aspect ratio, no people, "
+        f"no specific cultural or religious markers."
+    )
+
 
 def _soften_prompt(original: str, *, stage: str, reason: str, attempt: int) -> str:
     """Rewrite a flagged prompt. Four escalation tiers:
@@ -172,7 +242,10 @@ def _soften_prompt(original: str, *, stage: str, reason: str, attempt: int) -> s
     Falls back through the tiers if the LLM call itself errors.
     """
     if attempt >= 4:
-        return _GENERIC_PRODUCT_PROMPT
+        # Product-aware nuclear template — preserves the product type
+        # (perfume / dates / coffee / ...) so Seedream doesn't substitute
+        # a random "advertised item" for the user's actual product.
+        return _build_nuclear_template(original)
     if attempt >= 3:
         return _strip_cultural_markers(original)
 
