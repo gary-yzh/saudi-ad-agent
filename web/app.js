@@ -45,6 +45,11 @@ let SESSION_ID = null;
 let imagePollHandle = null;
 let videoPollHandle = null;
 
+// Brand logo state, mirrored client-side. The logo chip lives inside the
+// dynamically-rendered last storyboard shot; we read this on every render so
+// it shows up in the right state even after a re-draft swaps the last shot.
+let _brandLogoInfo = null;
+
 // Stepper state machine — must be declared BEFORE the init() IIFE that
 // calls setStepperFromState (the function is hoisted, but a `const` it
 // references would otherwise be in the TDZ at IIFE-run time and throw,
@@ -91,15 +96,7 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
   $("generate-video-btn").addEventListener("click", onGenerateVideo);
   $("new-session-btn").addEventListener("click", onNewSession);
 
-  // Asset chips (logo + brand manual). The chip itself is a button; clicks
-  // not on the inner × open the file picker.
-  wireAssetChip({
-    chipId: "logo-chip",
-    inputId: "brand-logo-file",
-    removeId: "logo-chip-remove",
-    onPick: onBrandLogoPicked,
-    onRemove: onBrandLogoRemove,
-  });
+  // Brand manual chip is static (lives in the brief panel) — bind directly.
   wireAssetChip({
     chipId: "pdf-chip",
     inputId: "brand-rag-file",
@@ -107,6 +104,11 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
     onPick: onBrandManualPicked,
     onRemove: onBrandManualRemove,
   });
+
+  // Logo chip is dynamic (rendered into the last storyboard shot). The
+  // hidden file input is static, so bind its change once; clicks on the
+  // chip + the inner × are handled by document-level delegation below.
+  $("brand-logo-file").addEventListener("change", onBrandLogoPicked);
 
   // Defensive document-level fallback for the sample button — if anything
   // above ever throws, this still works. Also handles the click on a
@@ -129,6 +131,23 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
       const card = brokenMedia.closest(".image-card");
       const shotId = Number(card?.dataset.shotId);
       if (shotId) triggerShotRetry(shotId, null);
+      return;
+    }
+    // Logo chip lives inside the last storyboard shot and is re-rendered on
+    // every showStoryboard() call, so handle its clicks via delegation:
+    //   • inner × → remove the uploaded logo
+    //   • anywhere else on the chip → open the file picker
+    const logoRemove = t.closest("#logo-chip-remove");
+    if (logoRemove) {
+      e.preventDefault();
+      e.stopPropagation();
+      onBrandLogoRemove();
+      return;
+    }
+    const logoChip = t.closest("#logo-chip");
+    if (logoChip) {
+      $("brand-logo-file").click();
+      return;
     }
   });
 
@@ -488,8 +507,14 @@ function removeChatPending(id) {
 }
 
 // ---------- Storyboard preview ---------------------------------------------
+// Confirm-state remembered between renders so re-renders triggered by
+// brand-logo state changes (upload / remove) don't drop the user back to
+// "draft — awaiting confirm" unexpectedly.
+let _signoffEnableConfirm = false;
+
 function showStoryboard(sb, enableConfirm, opts = {}) {
   _storyboardCache = sb || null;  // refresh cache so polling renders fresh shot metadata
+  _signoffEnableConfirm = !!enableConfirm;
   $("storyboard-panel").classList.remove("hidden");
 
   // Stale warning + button relabel when an existing stills grid no longer
@@ -513,20 +538,28 @@ function showStoryboard(sb, enableConfirm, opts = {}) {
   if (isArabic) voEl.setAttribute("lang", "ar");
   else voEl.removeAttribute("lang");
 
+  const shots = sb.shots || [];
   const shotsEl = $("sb-shots");
   shotsEl.innerHTML = "";
-  for (const shot of sb.shots || []) {
+  shots.forEach((shot, i) => {
     const li = document.createElement("li");
     li.className = "sb-shot";
+    const isSignOff = i === shots.length - 1;
+    const signOffTag = isSignOff
+      ? `<span class="sb-signoff-tag" title="Sign-off frame — the brand logo, if uploaded, lands here only.">SIGN-OFF</span>`
+      : "";
     li.innerHTML =
-      `<header><span class="sb-shot-id">#${shot.id}</span><span class="sb-shot-dur">${shot.duration_s ?? "?"}s</span></header>` +
+      `<header><span class="sb-shot-id">#${shot.id}</span>` +
+      `<span class="sb-shot-dur">${shot.duration_s ?? "?"}s${signOffTag}</span></header>` +
       `<p class="sb-shot-scene">${escapeHtml(shot.scene || "")}</p>` +
       `<details><summary class="muted small">visual / motion prompt</summary>` +
       `<p class="sb-shot-prompt"><strong>Visual:</strong> ${escapeHtml(shot.visual_prompt || "")}</p>` +
       `<p class="sb-shot-prompt"><strong>Motion:</strong> ${escapeHtml(shot.motion_prompt || "")}</p>` +
-      `</details>`;
+      `</details>` +
+      (isSignOff ? renderSignOffLogoSlot() : "");
+    if (isSignOff) li.classList.add("sb-shot-signoff");
     shotsEl.appendChild(li);
-  }
+  });
 
   $("confirm-storyboard-btn").disabled = !enableConfirm;
   const stage = $("sb-stage");
@@ -537,6 +570,37 @@ function showStoryboard(sb, enableConfirm, opts = {}) {
     stage.textContent = "confirmed";
     stage.className = "api-status ready";
   }
+}
+
+// Logo chip lives at the bottom of the sign-off (last) shot card. State
+// (empty vs loaded) is read from the module-level _brandLogoInfo, so a
+// re-draft of the storyboard preserves whatever the user already uploaded.
+function renderSignOffLogoSlot() {
+  const loaded = _brandLogoInfo && _brandLogoInfo.filename;
+  if (loaded) {
+    return (
+      `<div class="sb-shot-logo-slot">` +
+      `<button type="button" class="asset-chip is-loaded sb-logo-chip" id="logo-chip" data-asset="logo"` +
+      ` title="Brand logo will be composited onto the bottom-right of this sign-off frame.">` +
+      `<span class="asset-chip-icon">🏷</span>` +
+      `<span class="asset-chip-loaded-wrap">` +
+      `<span class="asset-chip-check">✓</span>` +
+      `<span class="asset-chip-name" id="logo-chip-name">${escapeHtml(_brandLogoInfo.filename)}</span>` +
+      `<span class="asset-chip-remove" id="logo-chip-remove" role="button" aria-label="Remove logo">×</span>` +
+      `</span>` +
+      `</button>` +
+      `</div>`
+    );
+  }
+  return (
+    `<div class="sb-shot-logo-slot">` +
+    `<button type="button" class="asset-chip is-empty sb-logo-chip" id="logo-chip" data-asset="logo"` +
+    ` title="Optional. Upload a brand logo (PNG/JPG/WEBP) — it will be composited onto the bottom-right of this sign-off frame only.">` +
+    `<span class="asset-chip-icon">🏷</span>` +
+    `<span class="asset-chip-label asset-chip-empty-label">+ Add brand logo (optional)</span>` +
+    `</button>` +
+    `</div>`
+  );
 }
 
 // ---------- Re-draft storyboard --------------------------------------------
@@ -822,8 +886,21 @@ function showBriefAssetError(msg) {
   setTimeout(() => el.classList.add("hidden"), 6000);
 }
 
-function showBrandLogoEmpty()       { setChipState("logo-chip", "logo-chip-name", "empty"); $("brand-logo-file").value = ""; }
-function showBrandLogoLoaded(info)  { setChipState("logo-chip", "logo-chip-name", "loaded", info); }
+function showBrandLogoEmpty() {
+  _brandLogoInfo = null;
+  // Re-render the storyboard if it's open so the chip in the sign-off
+  // shot reflects the new state. setChipState is a no-op when there's
+  // no chip in the DOM yet.
+  setChipState("logo-chip", "logo-chip-name", "empty");
+  const inp = $("brand-logo-file");
+  if (inp) inp.value = "";
+  if (_storyboardCache) showStoryboard(_storyboardCache, _signoffEnableConfirm);
+}
+function showBrandLogoLoaded(info) {
+  _brandLogoInfo = info || null;
+  setChipState("logo-chip", "logo-chip-name", "loaded", info);
+  if (_storyboardCache) showStoryboard(_storyboardCache, _signoffEnableConfirm);
+}
 function showBrandManualEmpty()     { setChipState("pdf-chip",  "pdf-chip-name",  "empty"); $("brand-rag-file").value = ""; }
 function showBrandManualLoaded(m)   { setChipState("pdf-chip",  "pdf-chip-name",  "loaded", m); }
 

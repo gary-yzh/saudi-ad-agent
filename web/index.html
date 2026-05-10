@@ -166,22 +166,17 @@
 
         <ol id="sb-shots" class="sb-shots"></ol>
 
+        <!-- Hidden file input for the sign-off shot's logo chip. The chip
+             itself is rendered dynamically inside the last <li> by
+             showStoryboard(); this input lives here as a stable sibling so
+             it survives re-renders. -->
+        <input type="file" id="brand-logo-file"
+               accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
+
         <div class="panel-actions storyboard-actions">
           <button type="button" id="redraft-storyboard-btn" class="secondary"
                   title="Ask the agent to draft a different storyboard from the same brief — varying the hook, pacing or scene composition.">
             ↻ Re-draft
-          </button>
-          <!-- Logo upload — composited onto every still that gets generated. -->
-          <button type="button" class="asset-chip is-empty" id="logo-chip" data-asset="logo"
-                  title="Optional. Upload your brand logo (PNG/JPG/WEBP). It will be composited onto the bottom-right of the final sign-off shot only — middle shots stay visually clean, the way short-form ads from Apple, Nike or top TikTok brands resolve at the end.">
-            <span class="asset-chip-icon">🏷</span>
-            <span class="asset-chip-label asset-chip-empty-label">Add Brand Logo</span>
-            <span class="asset-chip-loaded-wrap hidden">
-              <span class="asset-chip-check">✓</span>
-              <span class="asset-chip-name" id="logo-chip-name"></span>
-              <span class="asset-chip-remove" id="logo-chip-remove" role="button" aria-label="Remove logo">×</span>
-            </span>
-            <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
           </button>
           <button type="button" id="confirm-storyboard-btn" class="primary">Confirm and generate stills</button>
           <span class="muted small storyboard-actions-hint">— or keep chatting above to refine.</span>
