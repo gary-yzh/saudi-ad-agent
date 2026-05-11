@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Pre-commit hook — runs scripts/precommit_check.py against staged files.
+#
+# Activate on a fresh clone (one-time) with:
+#   git config core.hooksPath .githooks
+#
+# What it catches: Python SyntaxError, JS bracket mismatches, JS duplicate
+# `const`/`let` declarations in the same scope, mermaid blocks with
+# unescaped <placeholder> tokens. These are the exact bug classes that
+# bit us during the build (see scripts/precommit_check.py for the full
+# rationale).
+
+set -e
+
+# Pick a Python interpreter: hard-coded path first (Windows install we
+# know exists), then PATH lookups. Bail with a friendly message if no
+# Python is found — better to skip checks than block the commit on a
+# tooling problem.
+PY=""
+for candidate in \
+    "/c/Users/Lenovo/AppData/Local/Programs/Python/Python311/python.exe" \
+    "python3" \
+    "python"; do
+  if command -v "$candidate" >/dev/null 2>&1 || [ -x "$candidate" ]; then
+    PY="$candidate"
+    break
+  fi
+done
+
+if [ -z "$PY" ]; then
+  echo "[pre-commit] WARN: no Python found, skipping syntax checks."
+  echo "             Install Python or edit .githooks/pre-commit to point at it."
+  exit 0
+fi
+
+ROOT="$(git rev-parse --show-toplevel)"
+exec "$PY" "$ROOT/scripts/precommit_check.py"

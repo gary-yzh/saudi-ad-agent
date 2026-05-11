@@ -138,6 +138,11 @@ pip install -r requirements.txt
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
+# One-time: enable the pre-commit hook (syntax + mermaid sanity checks
+# — catches the regressions that bit us during the build; see
+# scripts/precommit_check.py for what's checked)
+git config core.hooksPath .githooks
+
 # Start the server
 python -m uvicorn server:app --host 127.0.0.1 --port 8000
 ```
