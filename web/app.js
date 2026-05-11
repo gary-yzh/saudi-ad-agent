@@ -766,7 +766,7 @@ function showStoryboard(sb, enableConfirm, opts = {}) {
   if (isArabic) voEl.setAttribute("lang", "ar");
   else voEl.removeAttribute("lang");
 
-  const shots = sb.shots || [];
+  // `shots` already declared above for the total-duration calc — reuse it.
   const shotsEl = $("sb-shots");
   shotsEl.innerHTML = "";
   shots.forEach((shot, i) => {
