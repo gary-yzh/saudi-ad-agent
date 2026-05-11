@@ -91,14 +91,14 @@
 
         <div id="chat-empty" class="chat-empty">
           <h3 class="chat-empty-title">Start with your brief</h3>
-          <!-- Apple-style empty state: title + one minimal guidance line
-               + one fine-print cap + one primary action. The guidance line
-               is three nouns (no verb, no period-of-explanation) — enough
-               for a first-time user to know what fields a brief should
-               contain, without lecturing. Anything richer they learn
-               by clicking the Sample button. -->
-          <p class="chat-empty-sub">Outline your audience, key message, visuals, tone.</p>
-          <p class="chat-empty-cap muted">Capped at 15 s per render.</p>
+          <!-- Apple-style 3-layer empty state: title + one directive +
+               primary action. The directive is verb-led ("Outline") and
+               its four nouns map 1:1 to the sample brief's section
+               headings (OBJECTIVE & AUDIENCE / KEY MESSAGE / VISUAL
+               DIRECTION / TONE). The single-render cap is parenthesised
+               into the same line so it reads as an attached constraint,
+               not a fourth visual layer competing for attention. -->
+          <p class="chat-empty-sub">Outline your audience, key message, visuals, tone (≤ 15 s per render).</p>
           <button type="button" id="load-sample" class="chat-empty-sample-btn">
             Load &lsquo;Bateel dates&rsquo; sample
           </button>
