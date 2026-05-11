@@ -89,14 +89,14 @@ sequenceDiagram
     participant TTS as ByteDance OpenSpeech
 
     U->>S: POST /api/sessions  (create)
-    U->>S: POST /api/sessions/<sid>/chat  (brief)
+    U->>S: POST /api/sessions/:sid/chat  (brief)
     S->>L: planner — brief → storyboard
     L-->>S: storyboard
     S->>L: brand-consistency judge (if manual uploaded)
     L-->>S: violations (or empty)
     S-->>U: { storyboard, eval, warnings }
 
-    U->>S: POST /api/sessions/<sid>/storyboard/confirm
+    U->>S: POST /api/sessions/:sid/storyboard/confirm
     par Per-shot in parallel
       S->>Ark: Seedream (shot 1) + auto-soften retry
     and
@@ -105,11 +105,11 @@ sequenceDiagram
       S->>Ark: Seedream (shot N) + auto-soften retry
     end
     loop UI polls every 1.5s
-      U->>S: GET /api/sessions/<sid>/shots
+      U->>S: GET /api/sessions/:sid/shots
       S-->>U: per-shot status
     end
 
-    U->>S: POST /api/sessions/<sid>/video  (selected shot ids)
+    U->>S: POST /api/sessions/:sid/video  (selected shot ids)
     S->>Ark: Seedance task create
     loop poll every 5s, async
       S->>Ark: GET /tasks/{id}
@@ -118,7 +118,7 @@ sequenceDiagram
     S->>TTS: voiceover text (locale auto-derived from speaker)
     TTS-->>S: chunked base64 audio
     S-->>U: { video local_url, audio_url, duration }
-    U->>U: <video> + <audio> sync (HTML5)
+    U->>U: HTML5 video + audio sync
 ```
 
 ---
