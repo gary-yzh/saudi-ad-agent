@@ -121,7 +121,7 @@ body {
 .api-status.missing { background: #FBE6E6; color: var(--danger); }
 
 /* Anchor-jump highlight: when /settings#tts_speaker_row is opened from
-   the voiceover hint on Console, briefly draw attention to the field. */
+   the voiceover hint on Studio, briefly draw attention to the field. */
 .api-label#tts_speaker_row {
   scroll-margin-top: 80px;
   border-radius: 6px;

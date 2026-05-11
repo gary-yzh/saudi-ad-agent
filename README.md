@@ -19,7 +19,7 @@ default.
 
 | Capability | Where it lives | What it does |
 | --- | --- | --- |
-| **Multi-step web UI** | `server.py` + `web/` | FastAPI server with two pages — a four-step **Console** (`/`: Brief → Storyboard → Stills → Video) and a **Settings** page (`/settings`) for API config. Every step persists in SQLite so reload picks up where you left off. |
+| **Multi-step web UI** | `server.py` + `web/` | FastAPI server with two pages — a four-step **Studio** (`/`: Brief → Storyboard → Stills → Video) and a **Settings** page (`/settings`) for API config. Every step persists in SQLite so reload picks up where you left off. |
 | **Planner** | `src/sessions.py:chat_turn` + `CHAT_SYSTEM` | Multi-turn conversation with the marketer. After each user message, the LLM either asks **one** clarifying question (`action: "ask"`) or emits a complete storyboard (`action: "storyboard"`) — hook / body / CTA / voiceover script + 3–6 shots each with scene, visual_prompt, motion_prompt, duration_s. System prompt enforces subject preservation (gender / attire) so cultural-marker softening downstream doesn't silently flip "Saudi man" to "person". |
 | **Tool-use** | `src/tools/bytedance_apis.py` | Three real Volcengine clients — Seedream (sync image), Seedance (async task + poll), Doubao OpenSpeech TTS (HTTP chunked base64 streaming). Per-shot Seedream calls fan out in a `ThreadPoolExecutor` so a 5-shot storyboard renders in 5–15 s, not 25–75 s. |
 | **RAG** | `src/nodes/rag.py` + `src/sessions.py:_session_brand_excerpt` | Two layers: a bundled demo brand manual (`data/brand_manual.md`) extracted into bullet-point constraints for first-time users, plus an optional user-uploaded PDF (parsed with pypdf, capped at 8 KB excerpt) that takes precedence as the authoritative source. The full manual text — not just keywords — is injected into the planner prompt so brand voice / palette / mandatories propagate verbatim. |
@@ -158,7 +158,7 @@ python -m uvicorn server:app --host 127.0.0.1 --port 8000
 
 Two pages, two responsibilities:
 
-- **`/`** (Console) — multi-step flow (Brief → Storyboard → Stills →
+- **`/`** (Studio) — multi-step flow (Brief → Storyboard → Stills →
   Video). Doesn't show any keys; reads `/api/config/status` to gate
   the Settings link's red dot indicator.
 - **`/settings`** (Settings) — three sections (LLM / Ark / TTS) with
@@ -265,10 +265,10 @@ saudi-ad-agent/
 │   └── tools/
 │       └── bytedance_apis.py # Real Doubao clients: Seedream / Seedance / OpenSpeech TTS
 ├── web/
-│   ├── index.html            # Console — 4-step stepper + chat compose + storyboard + stills + video
+│   ├── index.html            # Studio — 4-step stepper + chat compose + storyboard + stills + video
 │   ├── settings.html         # Settings — 3 sections, advanced collapse
 │   ├── styles.css            # Apple-style hairline dividers, calm states
-│   ├── app.js                # Console logic — per-tab session, polling, voiceover sync
+│   ├── app.js                # Studio logic — per-tab session, polling, voiceover sync
 │   └── settings.js           # Settings logic — quick-fill chips, advanced disclosure
 ├── tests/
 │   └── test_smoke.py
