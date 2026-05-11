@@ -1420,19 +1420,15 @@ button.secondary:active {
   font-size: 13px;
 }
 
-/* Eval self-check row — sits below the storyboard meta strip with a
-   hairline divider above, so the user reads it as "computed result"
-   rather than "another piece of the brief". Mirrors .sb-meta layout. */
-.sb-eval {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px 24px;
-  margin: 0 0 22px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-soft);
-  font-size: 13px;
-}
-.sb-eval-cell { display: flex; flex-direction: column; gap: 2px; }
+/* CTR + Brand-safety used to live in their own .sb-eval grid below
+   .sb-meta — produced a 4-cell brief grid with an orphan column in
+   row 2 plus a 2-cell eval grid that visually misaligned. Folded
+   into .sb-meta as the last two cells, so the 6 cells fill a clean
+   3×2 grid: row 1 = creative content (hook / CTA / VO), row 2 =
+   numeric description (duration / CTR / safety). The .sb-eval-cell
+   class is retained as a marker for #sb-ctr / #sb-eval-status; the
+   flex column layout it used to define is inherited from the
+   .sb-meta div rule below. */
 #sb-ctr {
   font-weight: 600;
   font-variant-numeric: tabular-nums;

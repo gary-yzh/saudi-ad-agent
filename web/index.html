@@ -200,12 +200,14 @@
             </span>
             <span id="sb-total-duration">—</span>
           </div>
-        </div>
-
-        <!-- Eval row — heuristic CTR forecast + brand-safety pass/fail.
-             Runs on every storyboard turn; result lives in the assistant
-             message payload so it survives reload via restoreView. -->
-        <div class="sb-eval">
+          <!-- CTR + Brand-safety are heuristic self-checks the agent runs
+               on every storyboard turn (result rides in the assistant
+               message payload so it survives reload via restoreView).
+               They live inside .sb-meta — not a separate grid — so the
+               6 cells fill a clean 3×2 grid without orphan rows.
+               Row 1 (creative content: hook / CTA / VO) and row 2
+               (numeric description: duration / CTR / safety) read as
+               two natural sub-groups; no divider needed. -->
           <div class="sb-eval-cell">
             <span class="sb-label">Predicted CTR
               <span class="info-tip" data-tip="Heuristic estimate from hook length, CTA clarity, voiceover language and body length. KSA short-form benchmark is ~2.5%.">?</span>
