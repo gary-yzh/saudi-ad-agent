@@ -11,6 +11,8 @@ repo slug), but the system is locale-agnostic — Arabic / English /
 Chinese voiceover, brand-manual RAG, KSA cultural guardrails on by
 default.
 
+![End-to-end demo — Bateel premium-dates brief through 4-shot storyboard, Seedream stills, and a 9:16 Seedance video with synced TTS voiceover (first 8 s of a 15 s render).](docs/demo.gif)
+
 ---
 
 ## 1. Capabilities
@@ -339,15 +341,41 @@ This repo implements **production**. The natural extension points:
 
 ---
 
-## 9. Deliverables checklist
+## 9. Deliverables
 
-- [x] Git repo with full source tree (this repo)
-- [x] README with capability matrix and quickstart (this file)
-- [x] Architecture diagrams — flowchart + sequence (Mermaid above; full
-      walkthrough in [docs/architecture.md](docs/architecture.md))
-- [x] Multi-step web UI with full configurability
-- [x] Real ByteDance / Volcengine integrations (Seedream / Seedance / TTS)
-- [x] Auto-retry on safety-filter rejections (4 tiers), graceful
-      degradation on hard failures
-- [x] 3-min English demo video **script** (see [docs/demo_video_script.md](docs/demo_video_script.md))
-- [x] Smoke test ([tests/test_smoke.py](tests/test_smoke.py))
+This is a take-home submission. Mapping to the brief:
+
+| Required | Status | Where |
+| --- | :-: | --- |
+| Git repository with full source tree | ✓ | This repo |
+| README with capability matrix + quickstart | ✓ | This file |
+| Architecture diagram | ✓ | §2 Mermaid above + [docs/architecture.md](docs/architecture.md) (12-section deep-dive) |
+| Working end-to-end demo | ✓ | GIF at the top of this README; reproduce via §3 Quickstart + §4 Configuration |
+| 3-min English demo script | ✓ | [docs/demo_video_script.md](docs/demo_video_script.md) |
+| Smoke test | ✓ | [tests/test_smoke.py](tests/test_smoke.py) (keyword tests always; e2e auto-skips without all 3 API keys) |
+
+**Beyond the spec** — not requested but shipped:
+
+- 3-layer guardrail (input keyword guard with **negation-context detection** + post-storyboard scan + 4-tier Doubao auto-soften)
+- Brand-manual RAG: bundled demo manual **plus** user-uploaded PDF that takes precedence
+- Separate brand-consistency LLM judge (not just the planner self-checking)
+- Voiceover synced to video at the **browser level** via HTML5 `<audio>` + `<video>` — no server-side ffmpeg
+- Sign-off-only logo composite (Apple / Nike pattern), not every-frame
+- Per-shot **cumulative refine** (turn N's edit stacks on turn N-1's, not replaces)
+
+### How a reviewer verifies this in 2 minutes
+
+1. `pip install -r requirements.txt` then `python server.py`
+2. Open `http://127.0.0.1:8000/settings`, paste 3 API keys (LLM / Ark / TTS), click **Save**
+3. Back to `/`, click **Load 'Bateel dates' sample**, then **Send** — first storyboard arrives in ~30 s
+4. Click **Confirm and generate stills** — 4 images appear in 10–15 s
+5. Tick all checkboxes, click **Generate video from selection** — Seedance renders for 3–5 min, then plays in-page with synced voiceover
+
+The GIF at the top of this README is the output of exactly this path (Bateel sample brief, 4 shots, 15 s 9:16 ad).
+
+### Known limits / what I'd do next
+
+- **Seedance render is in-session synchronous** — production should queue + webhook so the user can leave the tab. Current implementation polls every 6 s for up to 30 min.
+- **Brand-manual RAG is text-only** — uploading logo / palette / typography samples would tighten visual consistency further.
+- **No A/B variants** — current flow produces one hero. Cut-downs (Reels / TikTok / Shorts variants) are noted in the planner prompt but not generated.
+- **Smoke test skips real video generation by design** — Seedance is 3–30 min per call, would dominate CI cost. Manual verification follows the 2-min path above. (This caveat is also where the Seedance R2V `duration not valid` regression hid for a few days — fix in commit history; lesson taken: even when CI skips a path, run it by hand before shipping.)

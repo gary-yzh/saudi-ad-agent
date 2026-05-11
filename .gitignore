@@ -39,3 +39,7 @@ __MACOSX/
 build/
 dist/
 *.egg-info/
+
+# Local diagnostic scripts (Seedance duration bug post-mortem). Kept on
+# disk for re-running but not part of the delivered project.
+probe_*.py
