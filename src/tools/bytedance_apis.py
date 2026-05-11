@@ -224,6 +224,34 @@ def _build_video_content(
     return content
 
 
+# Seedance 2.0's R2V (image-to-video) mode accepts ANY integer duration
+# in the closed range [4, 15] seconds — verified against the official
+# Volcengine Python SDK source (volcengine-python-sdk/master/
+# volcenginesdkarkruntime/resources/content_generation/tasks.py: the
+# `duration` param is a top-level body field with no enum constraint)
+# and the official ComfyUI plugin (fkxianzhou/ComfyUI-Jimeng-API/
+# nodes/nodes_video.py line 1222: `min_val=4, max_val=15, is_int=True`
+# for Seedance 2.0 nodes).
+#
+# Earlier this file had a "discrete allowed set {4,5,6,8,10,12,15}"
+# clamp based on third-party blog posts (segmind/glbgpt/laozhang).
+# That guidance was WRONG for Seedance 2.0 — those values are for
+# Seedance 1.x Lite, a different model. Reverted to a plain range.
+SEEDANCE_MIN_DURATION: int = 4
+SEEDANCE_MAX_DURATION: int = 15
+
+
+def snap_seedance_duration(raw: float) -> int:
+    """Clamp a requested duration into Seedance 2.0's accepted [4, 15]
+    integer range. Name kept ("snap") for back-compat with sessions.py
+    callers; behaviour is now a simple clamp + round, since the range
+    is continuous, not discrete."""
+    return max(
+        SEEDANCE_MIN_DURATION,
+        min(SEEDANCE_MAX_DURATION, int(round(float(raw)))),
+    )
+
+
 def _http_post_json(url: str, *, headers: dict, json_body: dict, timeout: float = 60) -> dict:
     """One-shot POST with a fresh httpx.Client. Retries once on transient
     network errors (Windows + Volcengine's short keep-alive can drop sockets
@@ -283,7 +311,17 @@ def seedance_generate(
 
     model = cfg_get("video_model", env_var="ARK_VIDEO_MODEL", default=VIDEO_MODEL_DEFAULT)
     ratio = cfg_get("video_ratio", env_var="ARK_VIDEO_RATIO", default="9:16")
-    duration = int(cfg_get("video_duration", default=int(round(duration_s))))
+    # Clamp to [4, 15]. The official Volcengine Python SDK declares
+    # `duration` as a plain top-level body field on the same path we
+    # POST to; the only constraint is the Seedance 2.0 model accepts
+    # 4-15 inclusive. Anything outside fails with HTTP 400
+    # "InvalidParameter ... duration not valid for model
+    # doubao-seedance-2-0 in r2v". Defence-in-depth: sessions.py also
+    # clamps the storyboard total before passing duration_s; this
+    # guards against a stale config override sneaking through.
+    duration = snap_seedance_duration(
+        float(cfg_get("video_duration", default=duration_s))
+    )
     generate_audio = bool(cfg_get("video_generate_audio", default=False))
     watermark = bool(cfg_get("video_watermark", default=False))
 

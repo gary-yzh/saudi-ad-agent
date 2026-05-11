@@ -182,7 +182,7 @@ OR:
         "scene": "<one-line plain-English description, including subject specifics. Follow the brief's VISUAL DIRECTION sequence if specified.>",
         "visual_prompt": "<image-gen prompt. MUST repeat the scene's subject specifics verbatim (gender, attire, ethnicity, age) before adding lighting/framing/palette/9:16. If brief says 'hand-only, no faces' or 'product-only, no people', every visual_prompt must respect that. Diffusion models default to category stereotypes (women for perfume/beauty, men for tools/sport) when subject is vague — explicit subject markers are MANDATORY.>",
         "motion_prompt": "<video-gen prompt: camera move + animation, 1 sentence>",
-        "duration_s": <float, 2.0-5.0>
+        "duration_s": <float, 1.5-3.5>
       },
       ... 3 to 6 shots total
     ]
@@ -190,9 +190,13 @@ OR:
 }
 
 Hard rules:
-- Total shot duration must sum to 8-30 seconds. For most short-form
-  ads, 15-25 seconds is the sweet spot (TikTok / IG Reels / YouTube
-  Shorts benchmark).
+- Total shot duration MUST sum to an integer in [4, 15] seconds —
+  this is Seedance 2.0's accepted range for a single generation
+  call. Going under 4 or over 15 fails with HTTP 400 "duration not
+  valid". For short-form ads the sweet spot inside that window is
+  8-12 seconds. The server will clamp to [4, 15] if a storyboard
+  drifts; aiming directly stays closer to your intended scene
+  timing.
 - Voiceover language matches the locale (Arabic for ar-*, English for en-*,
   Chinese for zh-*).
 - No alcohol, no pork, no gambling iconography.
@@ -1043,17 +1047,17 @@ def _gen_video(session_id: str, selected_ids: list[int]) -> None:
         return
 
     motion_prompt = _build_motion_prompt(storyboard, selected_shots)
-    duration = sum(float(s.get("duration_s") or 3.0) for s in selected_shots)
-    # Total video length, clamped to [3, 30] s.
-    #
-    # Why 30 s upper bound: that's the sweet spot for short-form ads
-    # across TikTok / IG Reels / YouTube Shorts (15-30 s wins CTR; <15 s
-    # is "hook-only" territory; >30 s drops engagement on these
-    # platforms). Doubao Seedance accepts longer values too — bump this
-    # cap if you need 60 s for a YouTube TrueView ad. The CHAT_SYSTEM
-    # planner prompt above asks the LLM to keep storyboards in
-    # 8-30 s range; this clamp is the safety net.
-    duration = max(3, min(30, int(round(duration))))
+    duration = sum(float(s.get("duration_s") or 2.0) for s in selected_shots)
+    # Snap the storyboard total to Doubao Seedance 2.0's DISCRETE
+    # allowed-duration set: {4, 5, 6, 8, 10, 12, 15}. Crucially this
+    # is not a continuous 4-15 range — values like 7, 9, 11, 13, 14
+    # are rejected by R2V with HTTP 400 "the parameter duration ...
+    # is not valid for model doubao-seedance-2-0 in r2v". An int
+    # clamp was the previous bug — it produced 7s totals that the
+    # API refused. The CHAT_SYSTEM prompt nudges the LLM toward
+    # accepted totals; this snap is the deterministic safety net.
+    from .tools.bytedance_apis import snap_seedance_duration
+    duration = snap_seedance_duration(duration)
 
     storage.upsert_video(
         session_id=session_id,
