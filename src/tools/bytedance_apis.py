@@ -312,16 +312,15 @@ def seedance_generate(
     model = cfg_get("video_model", env_var="ARK_VIDEO_MODEL", default=VIDEO_MODEL_DEFAULT)
     ratio = cfg_get("video_ratio", env_var="ARK_VIDEO_RATIO", default="9:16")
     # Clamp to [4, 15]. The official Volcengine Python SDK declares
-    # `duration` as a plain top-level body field on the same path we
-    # POST to; the only constraint is the Seedance 2.0 model accepts
+    # `duration` as a plain top-level body field; Seedance 2.0 accepts
     # 4-15 inclusive. Anything outside fails with HTTP 400
     # "InvalidParameter ... duration not valid for model
-    # doubao-seedance-2-0 in r2v". Defence-in-depth: sessions.py also
-    # clamps the storyboard total before passing duration_s; this
-    # guards against a stale config override sneaking through.
-    duration = snap_seedance_duration(
-        float(cfg_get("video_duration", default=duration_s))
-    )
+    # doubao-seedance-2-0 in r2v". Duration now flows purely from the
+    # storyboard (caller passes the shot-summed total in duration_s);
+    # the Settings.video_duration override was removed as a category
+    # error — ad length is a creative decision that belongs to the
+    # storyboard, not to global config.
+    duration = snap_seedance_duration(float(duration_s))
     generate_audio = bool(cfg_get("video_generate_audio", default=False))
     watermark = bool(cfg_get("video_watermark", default=False))
 
@@ -423,18 +422,16 @@ def _audio_params() -> dict[str, Any]:
         # alongside the video without manual volume cranking. Combined
         # with the client-side 1.6× Web Audio gain, total ~2.4× boost.
         "loudness_rate": int(cfg_get("tts_loudness_rate", default=30)),
+        # Emotion is fixed at "neutral" — works for the vast majority of
+        # short-form commercial ads. Tone variation (joyful / somber /
+        # urgent) is expressed through the voiceover *text* the LLM
+        # writes from the brief's TONE field, not via TTS emotion
+        # tuning. The previous Settings.emotion override was a category
+        # error: emotion is a per-brief creative decision, not a global
+        # brand config — locking it would force one brand into one
+        # emotion across all campaigns.
+        "emotion": "neutral",
     }
-    # Emotion default "neutral" — works across brand tones (premium /
-    # restrained / playful) without colouring the voiceover one way or
-    # the other. User picks a more specific emotion in Settings
-    # (calm / happy / warm / sad / angry / surprised) if their brand
-    # voice needs it. Empty string still bypasses the param entirely.
-    emotion = cfg_get("tts_emotion", default="neutral")
-    if emotion:
-        params["emotion"] = emotion
-    emotion_scale = cfg_get("tts_emotion_scale", default=None)
-    if emotion_scale is not None and emotion_scale != "":
-        params["emotion_scale"] = int(emotion_scale)
     return params
 
 

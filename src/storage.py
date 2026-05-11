@@ -32,11 +32,15 @@ ALLOWED_KEYS: set[str] = {
     "openai_api_key", "openai_base_url", "openai_model",
     "ark_api_key", "ark_base_url",
     "image_model", "image_size", "image_watermark",
-    "video_model", "video_ratio", "video_duration", "video_generate_audio", "video_watermark",
+    "video_model", "video_ratio", "video_generate_audio", "video_watermark",
     "tts_api_key", "tts_url", "tts_resource_id", "tts_speaker", "tts_format",
     "tts_sample_rate", "tts_speech_rate", "tts_loudness_rate",
-    "tts_emotion", "tts_emotion_scale", "tts_silence_duration", "tts_explicit_language",
+    "tts_silence_duration", "tts_explicit_language",
 }
+# Removed in 2026-05-11 product polish — these were per-brief / per-content
+# decisions miscategorised as global Settings, see README §9:
+#   video_duration  → drives shot total length, now flows from storyboard
+#   tts_emotion / tts_emotion_scale → per-brief tone, fixed at "neutral"
 
 REQUIRED_KEYS: tuple[str, ...] = ("openai_api_key", "ark_api_key", "tts_api_key")
 

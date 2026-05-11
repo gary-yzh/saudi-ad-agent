@@ -182,6 +182,17 @@
               <a href="/settings#tts_speaker_row">change speaker</a>
             </p>
           </div>
+          <!-- Total duration = sum of each shot's duration_s, clamped to
+               [4, 15] s by Doubao Seedance 2.0. Surfaces here (not in
+               Settings) because ad length is a content-driven creative
+               decision — change it by editing the brief or chatting
+               with the planner ("make it 8 seconds total"). -->
+          <div>
+            <span class="sb-label">Total duration
+              <span class="info-tip" data-tip="Sum of all shots. Doubao Seedance 2.0 clamps this to 4–15 s; short-form ad sweet spot is 8–12 s. To change, edit the brief or ask the planner in chat.">?</span>
+            </span>
+            <span id="sb-total-duration">—</span>
+          </div>
         </div>
 
         <!-- Eval row — heuristic CTR forecast + brand-safety pass/fail.

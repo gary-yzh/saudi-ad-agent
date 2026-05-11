@@ -173,8 +173,17 @@ read — graph nodes never take credentials as parameters.
 | Settings section | Required | Optional knobs |
 | --- | --- | --- |
 | **LLM (OpenAI-compatible)** | `openai_api_key` | `openai_base_url`, `openai_model`. Quick-fill chips for **Qwen** (`https://dashscope.aliyuncs.com/compatible-mode/v1`, `qwen-plus`), **Doubao** (`https://ark.cn-beijing.volces.com/api/v3`, `doubao-1-5-pro-32k`), **OpenAI** (`https://api.openai.com/v1`, `gpt-4o-mini`) |
-| **Image + Video (Volcengine Ark · Doubao)** | `ark_api_key` | `ark_base_url`, `image_model` (default `doubao-seedream-5-0-260128`), `image_size`, `video_model` (default `doubao-seedance-2-0-260128`), `video_ratio`, `video_duration` |
-| **Voiceover (ByteDance OpenSpeech · Doubao TTS)** | `tts_api_key` | `tts_url`, `tts_resource_id` (`seed-tts-2.0` / `seed-icl-2.0` voice cloning / …), `tts_speaker` (locale auto-derived from prefix: `en_*` → `en-US`, `zh_*` → `zh-CN`, etc.). **Advanced** (collapsed): speech_rate, loudness, emotion + scale, silence_duration. |
+| **Image + Video (Volcengine Ark · Doubao)** | `ark_api_key` | `ark_base_url`, `image_model` (default `doubao-seedream-5-0-260128`), `image_size`, `video_model` (default `doubao-seedance-2-0-260128`), `video_ratio` |
+| **Voiceover (ByteDance OpenSpeech · Doubao TTS)** | `tts_api_key` | `tts_url`, `tts_resource_id` (`seed-tts-2.0` / `seed-icl-2.0` voice cloning / …), `tts_speaker` (locale auto-derived from prefix: `en_*` → `en-US`, `zh_*` → `zh-CN`, etc.). **Advanced** (collapsed): speech_rate, loudness. |
+
+> **Note** — video duration and TTS emotion are intentionally **not** in
+> Settings. They're per-brief creative decisions (one brand can run a
+> 6 s urgency ad next to a 12 s reflective ad with different tones), so
+> they live where they belong: duration is driven by the storyboard's
+> shot total (capped to Doubao Seedance 2.0's 4–15 s window and shown
+> on the Storyboard panel); emotion is fixed at `neutral` and tone
+> variation is expressed through the voiceover *text* the planner
+> writes from the brief's TONE field. See §9 for the post-mortem.
 
 The Settings link in the top nav shows a small red dot only when keys
 are missing (Apple-style: silent steady-state, surface only when
@@ -362,6 +371,21 @@ This is a take-home submission. Mapping to the brief:
 - Voiceover synced to video at the **browser level** via HTML5 `<audio>` + `<video>` — no server-side ffmpeg
 - Sign-off-only logo composite (Apple / Nike pattern), not every-frame
 - Per-shot **cumulative refine** (turn N's edit stacks on turn N-1's, not replaces)
+
+### Notable product decision: Settings-tier ↔ Storyboard-tier separation
+
+Three fields originally lived in Settings as "global config" but were
+actually per-brief creative decisions in disguise. Removed:
+
+| Field | Why it was wrong | Where it lives now |
+| --- | --- | --- |
+| `video_duration` | Ad length is content-driven (N shots × their `duration_s`), not a global preference. Forcing 5 s when the storyboard says 23 s makes Seedance compress the content. | Storyboard panel shows live total + clamp note (e.g. "12 s · sweet spot ✓" or "15 s · capped from 23.0 s"). Change duration by editing the brief or chatting with the planner. |
+| `tts_emotion` | One brand runs both 6 s urgency ads and 12 s reflective ads — locking emotion globally is a category error. | Fixed at `neutral`. Tone variation is expressed via the voiceover *text* the planner writes from the brief's TONE field (joyful copy → joyful read even on a neutral voice). |
+| `tts_emotion_scale` | Same — pairs with emotion. | Removed. |
+
+Settings now contains **only** what's truly global (API endpoints,
+model IDs, ratios, sizes, brand voice ID, audio levels). This is a
+small change but a real product mistake worth flagging.
 
 ### How a reviewer verifies this in 2 minutes
 

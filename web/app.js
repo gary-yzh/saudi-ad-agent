@@ -745,6 +745,19 @@ function showStoryboard(sb, enableConfirm, opts = {}) {
   $("sb-hook").textContent = sb.hook || "—";
   $("sb-cta").textContent = sb.cta || "—";
 
+  // Total duration = sum of shot durations, clamped to Seedance 2.0's
+  // [4, 15] s window. Annotate when the LLM drifted outside the window
+  // (so the user can see the clamp happening) and when the total lands
+  // in the 8-12 s short-form sweet spot.
+  const shots = sb.shots || [];
+  const totalRaw = shots.reduce((acc, s) => acc + (parseFloat(s.duration_s) || 0), 0);
+  const totalClamped = Math.max(4, Math.min(15, Math.round(totalRaw)));
+  let durNote = "";
+  if (totalRaw > 15) durNote = ` · capped from ${totalRaw.toFixed(1)} s`;
+  else if (totalRaw > 0 && totalRaw < 4) durNote = ` · raised from ${totalRaw.toFixed(1)} s`;
+  else if (totalClamped >= 8 && totalClamped <= 12) durNote = " · sweet spot ✓";
+  $("sb-total-duration").textContent = totalRaw > 0 ? `${totalClamped} s${durNote}` : "—";
+
   const vo = sb.voiceover || "";
   const voEl = $("sb-vo");
   voEl.textContent = vo || "—";

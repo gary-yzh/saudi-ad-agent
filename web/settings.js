@@ -13,10 +13,8 @@ const REQUIRED = {
 // No checkbox fields after the watermark / generate_audio cleanup
 const BOOL_FIELDS = new Set();
 const INT_FIELDS = new Set([
-  "video_duration",
   "tts_speech_rate",
   "tts_loudness_rate",
-  "tts_emotion_scale",
 ]);
 
 const $ = (id) => document.getElementById(id);
