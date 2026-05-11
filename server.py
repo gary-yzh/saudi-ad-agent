@@ -53,6 +53,23 @@ app = FastAPI(title="Saudi Ad Agent")
 app.mount("/static", StaticFiles(directory=str(WEB)), name="static")
 app.mount("/runs", StaticFiles(directory=str(RUNS_DIR)), name="runs")
 
+
+# Force the browser to revalidate every static asset on every request.
+# Default StaticFiles sends no Cache-Control header → browsers cache
+# /static/app.js for hours, which means a code edit on the server
+# silently fails to reach the user until they Ctrl+Shift+R. Once bit
+# users into thinking buttons were broken after a refactor that
+# actually shipped fine. `no-cache` (not `no-store`) keeps ETag /
+# Last-Modified validation, so unchanged files still 304 fast — but
+# changed files always 200 with fresh bytes.
+@app.middleware("http")
+async def _no_cache_for_static(request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/") or path in ("/", "/settings"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
 _graph = build_graph()
 _executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="saa-job")
 

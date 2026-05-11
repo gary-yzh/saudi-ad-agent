@@ -134,11 +134,11 @@
         </div>
 
         <div class="api-subhead">Video · Doubao Seedance</div>
-        <label class="api-label">
-          <span>Model</span>
-          <input id="video_model" name="video_model" type="text" placeholder="doubao-seedance-2-0-260128">
-        </label>
         <div class="api-row">
+          <label class="api-label">
+            <span>Model</span>
+            <input id="video_model" name="video_model" type="text" placeholder="doubao-seedance-2-0-260128">
+          </label>
           <label class="api-label">
             <span>Aspect ratio</span>
             <select id="video_ratio" name="video_ratio">
@@ -198,28 +198,21 @@
           <span>Speaker (voice ID)</span>
           <input id="tts_speaker" name="tts_speaker" type="text" placeholder="zh_female_shuangkuaisisi_moon_bigtts">
         </label>
-
-        <details class="settings-advanced">
-          <summary>
-            <span class="settings-advanced-label">Advanced settings</span>
-            <span class="settings-advanced-hint">Speech rate and loudness. Defaults work for most cases — change only if the voiceover sounds wrong on your speakers.</span>
-          </summary>
-          <div class="api-row">
-            <label class="api-label">
-              <span>Speech rate <em class="muted">(-50 → 100, default -10)</em></span>
-              <input id="tts_speech_rate" name="tts_speech_rate" type="number" min="-50" max="100" step="1" placeholder="-10">
-            </label>
-            <label class="api-label">
-              <span>Loudness rate <em class="muted">(-50 → 100, default 30)</em></span>
-              <input id="tts_loudness_rate" name="tts_loudness_rate" type="number" min="-50" max="100" step="1" placeholder="30">
-            </label>
-          </div>
-          <!-- Emotion + emotion_scale intentionally removed: per-brief tone
-               (joyful / somber / urgent) is expressed through the voiceover
-               text the planner writes from the brief's TONE field, not via
-               TTS-level emotion tuning. TTS now always renders "neutral",
-               which works for the vast majority of short-form ads. -->
-        </details>
+        <!-- Speech rate + loudness used to hide behind an "Advanced settings"
+             details fold. With emotion / emotion_scale removed (they were
+             per-brief decisions, not global config), only two fields remained
+             — at which point hiding them costs more cognitive load than it
+             saves. Apple-style: flatter beats deeper. -->
+        <div class="api-row">
+          <label class="api-label">
+            <span>Speech rate <em class="muted">(-50 → 100, default -10)</em></span>
+            <input id="tts_speech_rate" name="tts_speech_rate" type="number" min="-50" max="100" step="1" placeholder="-10">
+          </label>
+          <label class="api-label">
+            <span>Loudness rate <em class="muted">(-50 → 100, default 30)</em></span>
+            <input id="tts_loudness_rate" name="tts_loudness_rate" type="number" min="-50" max="100" step="1" placeholder="30">
+          </label>
+        </div>
       </section>
 
       <div class="settings-actions">
