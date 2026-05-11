@@ -399,6 +399,7 @@ The GIF at the top of this README is the output of exactly this path (Bateel sam
 
 ### Known limits / what I'd do next
 
+- **Single-render duration cap (15 s).** Doubao Seedance 2.0's R2V mode generates one video per call, max 15 s. The Bateel sample brief, the Studio empty-state hint, and the planner's hard rule all align to this number so the brief, the storyboard, and the rendered output stay consistent (the previous version of the sample brief asked for ≤25 s, then the storyboard got silently compressed to 15 s at render time — a quiet product mismatch). **Stretch path**: chain N Seedance calls keyed off the storyboard's existing `shot.duration_s` boundaries, concat the resulting MP4s with ffmpeg's `concat` demuxer (or browser-level MediaSource Extensions if the ffmpeg dependency feels heavy), and lift the planner's `total ≤ 15` rule to `≤ 60`. ~150 LOC of orchestration; right path for 30-s YouTube TrueView ads; deliberately out of scope for this take-home.
 - **Seedance render is in-session synchronous** — production should queue + webhook so the user can leave the tab. Current implementation polls every 6 s for up to 30 min.
 - **Brand-manual RAG is text-only** — uploading logo / palette / typography samples would tighten visual consistency further.
 - **No A/B variants** — current flow produces one hero. Cut-downs (Reels / TikTok / Shorts variants) are noted in the planner prompt but not generated.

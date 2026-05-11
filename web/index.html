@@ -92,6 +92,12 @@
         <div id="chat-empty" class="chat-empty">
           <h3 class="chat-empty-title">Start with a quick brief</h3>
           <p class="chat-empty-sub">Describe the product, audience, and goal — plus any tone, length, or context.</p>
+          <!-- Single-render duration cap. Mentioned here (in the empty state,
+               at the moment the user is about to write the brief) rather than
+               buried in Settings or the docs, so users size their deliverable
+               correctly the first time instead of discovering the 15-s ceiling
+               only after their 25-s storyboard gets compressed. -->
+          <p class="chat-empty-cap muted">Heads up — Doubao Seedance 2.0 renders ≤ 15 s per brief. Briefs asking for longer get compressed at the storyboard step.</p>
           <button type="button" id="load-sample" class="chat-empty-sample-btn">
             Load &lsquo;Bateel dates&rsquo; sample
           </button>

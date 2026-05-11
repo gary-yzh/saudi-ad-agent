@@ -41,20 +41,20 @@ occasions, AOV $150+.
 "Each date, hand-picked like a jewel." — heritage + craftsmanship.
 
 3. DELIVERABLE
-Hero 9:16, ≤25 s, English voiceover with burn-in English captions.
+Hero 9:16, ≤15 s, English voiceover with burn-in English captions.
 
 4. VISUAL DIRECTION
-Concept: "From grove to gift" — 25 s ritual in 3 acts.
+Concept: "From grove to gift" — 15 s ritual in 3 acts.
 Hand-only, no faces, no actors.
 
-Act 1 (0–7 s): Golden-hour grove silhouette → macro of a refined
+Act 1 (0–5 s): Golden-hour grove silhouette → macro of a refined
    hand selecting one date. Slow-mo 60 fps on the pluck.
 
-Act 2 (7–17 s): Studio overhead, dates placed one-by-one into the
-   gold-foiled box. 3 macro inserts: date sheen, foil refraction,
+Act 2 (5–10 s): Studio overhead, dates placed one-by-one into the
+   gold-foiled box. Macro inserts: date sheen, foil refraction,
    hinge click.
 
-Act 3 (17–25 s): Box opens on a host's table. Host's hand offers
+Act 3 (10–15 s): Box opens on a host's table. Host's hand offers
    one date; a guest's hand reaches in to receive — exchange held
    in slow-mo. Background: dallah + porcelain finjan, bokeh.
 
