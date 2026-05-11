@@ -1772,6 +1772,10 @@ button.secondary:active {
   background: var(--surface);
   border-top: 1px solid var(--border-soft);
 }
+/* 2-row textarea baseline. resize: vertical exposes the native bottom-
+   right drag handle (same affordance as macOS Notes / Safari forms) —
+   no separate expand button needed. max-height caps the drag so a
+   careless pull doesn't blow up the layout. */
 .shot-refine-input {
   width: 100%;
   padding: 9px 12px;
@@ -1781,8 +1785,10 @@ button.secondary:active {
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   resize: vertical;
-  min-height: 48px;
+  min-height: 56px;
+  max-height: 200px;
   line-height: 1.45;
+  box-sizing: border-box;
 }
 .shot-refine-input:focus {
   outline: none;
@@ -2094,16 +2100,18 @@ button.secondary:active {
 .brief-attach-chip:hover .asset-chip-hint,
 .brief-attach-chip.is-loaded .asset-chip-hint { color: inherit; opacity: 0.8; }
 
-/* Just-in-time voiceover hint above the Generate-video button. Two-line
-   vertical layout (info on top, link on its own line) — much cleaner
-   than the prior horizontal "info — link" cram under the chat input.
-   The 16-px top margin gives breathing room from the image grid above;
-   the .panel-actions sibling below contributes its own 22-px top margin
-   for total ~22 px separation from the Generate button. */
+/* Voiceover-language hint. Lives inside the Storyboard's Voiceover
+   meta cell as a sub-line below the voiceover preview text — info
+   next to its referent, surfaced the first moment voiceover appears,
+   and well before TTS actually fires. Two-line vertical layout (info
+   on top, link on its own line). Base values are tuned for the in-
+   cell context; the .sb-meta override below tightens the top margin
+   so it reads as part of the same cell rather than a free-floating
+   strip. */
 .form-hint {
-  margin: 16px 0 0;
+  margin: 4px 0 0;
   padding: 0;
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 1.5;
   color: var(--muted);
   text-align: left;
@@ -2113,7 +2121,7 @@ button.secondary:active {
 .form-hint a {
   display: block;
   width: fit-content;            /* underline only as wide as the text */
-  margin-top: 3px;
+  margin-top: 2px;
   color: var(--emerald);
   text-decoration: none;
   border-bottom: 1px solid var(--emerald-light);
@@ -2123,6 +2131,10 @@ button.secondary:active {
   color: var(--emerald-dark);
   border-bottom-color: var(--emerald);
 }
+/* Inside the Voiceover meta cell, the parent flex column already
+   provides a 2-px gap to the "—" placeholder above; flatten the
+   top margin so the sub-line hugs its referent. */
+.sb-meta .form-hint { margin-top: 2px; }
 
 .step-num {
   display: inline-flex;
@@ -2204,16 +2216,15 @@ button.secondary:active {
   gap: 8px;
   padding: 10px;
 }
+/* Image-card override: only tweaks padding / background / radius to
+   match the card chrome. Height/resize live in the baseline rule above
+   so the textarea grows from 56-px min to 200-px max via the native
+   handle. The earlier `height: 34px` here forced the input to a single
+   line and is why the baseline's resize: vertical never took effect. */
 .shot-refine-input {
-  width: 100%;
-  height: 34px;
-  padding: 6px 10px;
-  font-size: 12.5px;
-  font-family: inherit;
-  border: 1px solid var(--border);
+  padding: 8px 10px;
   border-radius: 5px;
   background: var(--bg);
-  box-sizing: border-box;
 }
 .shot-refine-input:focus {
   outline: none;

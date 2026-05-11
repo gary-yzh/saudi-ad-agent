@@ -152,7 +152,10 @@
           </label>
           <label class="api-label">
             <span>Duration (seconds)</span>
-            <input id="video_duration" name="video_duration" type="number" min="3" max="15" step="1" placeholder="5">
+            <!-- Seedance 2.0 accepts any integer 4-15 inclusive (per the
+                 official Volcengine SDK source). Leave blank to let the
+                 storyboard's total duration drive the value. -->
+            <input id="video_duration" name="video_duration" type="number" min="4" max="15" step="1" placeholder="5">
           </label>
         </div>
       </section>

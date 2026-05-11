@@ -171,6 +171,16 @@
               <span class="info-tip" data-tip="The narration spoken over the ad. Doubao TTS reads this in the language picked when the brief started.">?</span>
             </span>
             <span id="sb-vo">—</span>
+            <!-- Sub-line under the voiceover preview text: which language
+                 the TTS engine will read in, with a one-click jump to
+                 change the speaker. Lives here (inside the Voiceover
+                 meta cell) because this is the first place the voiceover
+                 surfaces — info next to its referent, just-in-time, and
+                 well before TTS actually fires at "Generate video". -->
+            <p id="voiceover-info" class="form-hint" hidden>
+              Voiceover will be in <strong id="voiceover-info-lang">English (US)</strong>
+              <a href="/settings#tts_speaker_row">change speaker</a>
+            </p>
           </div>
         </div>
 
@@ -224,15 +234,6 @@
         </p>
 
         <ol id="image-grid" class="image-grid"></ol>
-
-        <!-- Just-in-time voiceover hint — surfaces only at the moment
-             the user is about to click Generate video, which is when TTS
-             actually fires. Lives here (not under the chat input) so
-             the Brief panel stays focused on writing the brief. -->
-        <p id="voiceover-info" class="form-hint" hidden>
-          Voiceover will be in <strong id="voiceover-info-lang">English (US)</strong>
-          <a href="/settings#tts_speaker_row">change speaker</a>
-        </p>
 
         <div class="panel-actions">
           <button type="button" id="generate-video-btn" class="primary" disabled>Generate video from selection</button>

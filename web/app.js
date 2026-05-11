@@ -373,13 +373,15 @@ async function ensureSession() {
   const j = await r.json();
   SESSION_ID = j.id;
   saveSessionId(SESSION_ID);
-  // Show the voiceover-info strip with the locale the server picked.
+  // Reveal the voiceover-info sub-line in the Storyboard's Voiceover
+  // meta cell with the locale the server picked from the speaker setting.
   if (j.session?.locale) showVoiceoverInfo(j.session.locale);
   return SESSION_ID;
 }
 
-// Pretty-print an IETF locale into the small read-only indicator above the
-// chat form so the user knows what language their voiceover will be in.
+// Pretty-print an IETF locale into the Storyboard's Voiceover meta cell
+// so the user knows what language their voiceover will be in — surfaced
+// the first moment the voiceover text appears, well before TTS fires.
 const LOCALE_LABELS = {
   "en-US": "English (US)",
   "en-SA": "English (Saudi)",
@@ -895,7 +897,14 @@ function renderImageCardInner(shot, st) {
   // the main chat Send button, prevents empty-prompt API calls.
   const controls = succeeded
     ? `<form class="shot-refine" data-shot-id="${shot.id}">` +
-      `<input type="text" class="shot-refine-input" placeholder="Tweak this shot — e.g. darker background, no people" maxlength="500">` +
+      // Multi-line textarea (not <input>): typical refine is a short
+      // phrase but can run to a sentence or two ("background → dusk,
+      // lower camera angle, add dust particles"). Default 2 rows keeps
+      // the 6-shot grid compact; user can drag the bottom-right handle
+      // to expand. Enter submits, Shift+Enter inserts a newline — same
+      // keybinding as the Brief chat input above.
+      `<textarea class="shot-refine-input" rows="2" maxlength="500"` +
+      ` placeholder="Tweak this shot — e.g. darker background, no people. Enter to apply · Shift+Enter for a new line"></textarea>` +
       `<button type="submit" class="shot-refine-send" disabled>Apply</button>` +
       `</form>`
     : failed
@@ -931,6 +940,14 @@ function wireImageCardEvents(card) {
     if (refineInput && refineSend) {
       refineInput.addEventListener("input", () => {
         refineSend.disabled = refineInput.value.trim().length === 0;
+      });
+      // Enter submits Apply, Shift+Enter inserts newline — mirrors the
+      // Brief chat-input keybinding so users only learn this once.
+      refineInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+          e.preventDefault();
+          if (!refineSend.disabled) refineForm.requestSubmit();
+        }
       });
     }
   }

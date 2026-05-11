@@ -48,20 +48,37 @@ function fillForm(cfg) {
     if (BOOL_FIELDS.has(el.name)) {
       el.checked = !!v;
     } else if (v == null || v === "") {
-      // No saved value → fall back to the HTML default. For <select>
-      // that means the option marked `selected` (or the first option
-      // if none is). Setting el.value="" on a select with no empty-
-      // value option would yield selectedIndex=-1 (visually blank).
-      if (el.tagName === "SELECT") {
-        el.selectedIndex = Math.max(0, _firstSelectedIndex(el));
-      } else {
-        el.value = "";
-      }
+      _applyDefault(el);
     } else {
       el.value = String(v);
     }
   });
   refreshStatusBadges();
+}
+
+// Apply the "no saved value" default to a single field. Centralised so
+// fillForm and the Clear button stay in lockstep — Clear should leave
+// the form looking exactly like a first-time visit, not blanker.
+//
+// Why placeholder-as-real-value for text/number inputs:
+//   Greyed placeholder text reads as "empty" to most users — they
+//   can't tell apart "the system default is gpt-4o-mini" from "you
+//   haven't entered anything yet". Promoting the placeholder to a
+//   real, selectable, editable value (same affordance as Apple's
+//   System Settings → defaults shown in black, not ghost grey) makes
+//   the configuration legible: what you see is what will run.
+//
+// Password fields are excluded — their placeholders are `sk-...` /
+// `...` template hints, not real values.
+function _applyDefault(el) {
+  if (el.tagName === "SELECT") {
+    // Select with an [selected] attribute → that option; else first.
+    el.selectedIndex = Math.max(0, _firstSelectedIndex(el));
+  } else if (el.type !== "password" && el.placeholder) {
+    el.value = el.placeholder;
+  } else {
+    el.value = "";
+  }
 }
 
 function _firstSelectedIndex(selectEl) {
@@ -190,11 +207,11 @@ function showToast(text, kind = "ok") {
     inputs().forEach((el) => {
       if (BOOL_FIELDS.has(el.name)) {
         el.checked = false;
-      } else if (el.tagName === "SELECT") {
-        // Reset selects to their HTML default option, not blank
-        el.selectedIndex = Math.max(0, _firstSelectedIndex(el));
       } else {
-        el.value = "";
+        // Same default-application as a first-time visit — Clear
+        // should restore the visible "system default" state, not
+        // leave the user staring at empty inputs.
+        _applyDefault(el);
       }
     });
     refreshStatusBadges();
