@@ -1280,11 +1280,14 @@ button.secondary:active {
 .chat-empty {
   text-align: center;
   /* Apple-style: short hero. Title (noun phrase, no period) + one
-     short hint + one primary action. Padding sized for that — not
-     for the multi-paragraph hero this used to be. */
+     short directive + one primary action. 580 px gives the
+     directive (currently 70 chars: "Outline audience, message,
+     visuals, tone for a video up to 15 seconds.") room to render on
+     one line at the current 13.5 px font — earlier 460/540 px
+     clipped it into two and broke the 3-layer rhythm. */
   padding: 40px 24px 32px;
   margin: 0 auto 8px;
-  max-width: 460px;
+  max-width: 580px;
 }
 .chat-empty-title {
   margin: 0 0 8px;
