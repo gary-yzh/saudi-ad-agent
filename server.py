@@ -56,6 +56,26 @@ app.mount("/static", StaticFiles(directory=str(WEB)), name="static")
 app.mount("/runs", StaticFiles(directory=str(RUNS_DIR)), name="runs")
 
 
+# Per-request correlation ID middleware. Sets the contextvar that
+# `src.log` reads, so every log line emitted while handling this request
+# (including from background-thread workers via `_run_with_config`)
+# carries the same `request_id` field. Caller can supply their own via
+# the X-Request-Id header (lets them trace across services); otherwise
+# we generate one. Returned in the response header so the client can
+# correlate with their own logs.
+@app.middleware("http")
+async def _request_id_middleware(request, call_next):
+    from src.log import request_id_var
+    rid = request.headers.get("X-Request-Id") or f"req-{uuid.uuid4().hex[:12]}"
+    token = request_id_var.set(rid)
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-Id"] = rid
+        return response
+    finally:
+        request_id_var.reset(token)
+
+
 # Global catch-all for unexpected exceptions. Anything that isn't already
 # an HTTPException ends up here. We log the full trace to the server
 # console for ops + return a friendly message + a correlation ID to the
@@ -66,11 +86,15 @@ app.mount("/runs", StaticFiles(directory=str(RUNS_DIR)), name="runs")
 @app.exception_handler(Exception)
 async def _unhandled_exception_handler(request, exc: Exception):
     from fastapi.responses import JSONResponse as _JSON
+    from src.log import logger
     support_id = f"err-{int(time.time())}-{uuid.uuid4().hex[:6]}"
-    print(
-        f"\n=== unhandled exception on {request.url.path} "
-        f"({support_id}) ===\n{traceback.format_exc()}",
-        flush=True,
+    logger.error(
+        "unhandled_exception",
+        path=str(request.url.path),
+        support_id=support_id,
+        error=str(exc),
+        error_type=type(exc).__name__,
+        traceback=traceback.format_exc(),
     )
     return _JSON(
         status_code=500,
@@ -260,10 +284,15 @@ def post_message(sid: str, req: ChatRequest) -> JSONResponse:
         # User sees a friendly message + a support ID for correlation,
         # never the raw Python exception type — leaking class names lets
         # attackers map our internals.
+        from src.log import logger
         support_id = f"err-{int(time.time())}-{uuid.uuid4().hex[:6]}"
-        print(
-            f"\n=== chat_turn failed ({support_id}) ===\n{traceback.format_exc()}",
-            flush=True,
+        logger.error(
+            "chat_turn_failed",
+            session_id=sid,
+            support_id=support_id,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            traceback=traceback.format_exc(),
         )
         raise HTTPException(
             status_code=500,
@@ -471,10 +500,14 @@ def run(req: RunRequest) -> JSONResponse:
             # Same pattern as the chat_turn handler above — log the full
             # trace server-side with a correlation ID, return friendly
             # message to the API client.
+            from src.log import logger
             support_id = f"err-{int(time.time())}-{uuid.uuid4().hex[:6]}"
-            print(
-                f"\n=== graph failed ({support_id}) ===\n{traceback.format_exc()}",
-                flush=True,
+            logger.error(
+                "graph_failed",
+                support_id=support_id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+                traceback=traceback.format_exc(),
             )
             raise HTTPException(
                 status_code=500,

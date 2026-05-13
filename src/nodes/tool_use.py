@@ -266,7 +266,8 @@ def _soften_prompt(original: str, *, stage: str, reason: str, attempt: int) -> s
         if new_prompt:
             return new_prompt
     except Exception as e:
-        print(f"[soften_prompt] LLM rewrite failed: {e}", flush=True)
+        from ..log import logger
+        logger.warning("soften_prompt_llm_rewrite_failed", error=str(e))
     return _strip_cultural_markers(original)
 
 

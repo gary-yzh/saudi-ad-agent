@@ -362,10 +362,13 @@ def seedance_generate(
                     f"Seedance task {task_id} polling lost connectivity for "
                     f"{consecutive_poll_errors} consecutive attempts: {e}"
                 ) from e
-            print(
-                f"[seedance poll {task_id}] transient error "
-                f"({consecutive_poll_errors}/{MAX_CONSECUTIVE_POLL_ERRORS}): {e}",
-                flush=True,
+            from ..log import logger
+            logger.warning(
+                "seedance_poll_transient_error",
+                task_id=task_id,
+                attempt=consecutive_poll_errors,
+                max_attempts=MAX_CONSECUTIVE_POLL_ERRORS,
+                error=str(e),
             )
             continue
         consecutive_poll_errors = 0

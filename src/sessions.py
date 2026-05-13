@@ -418,7 +418,8 @@ def _check_brand_consistency(storyboard: dict[str, Any], manual_text: str) -> li
             max_tokens=600,
         )
     except Exception as e:
-        print(f"[brand-consistency] check failed (non-fatal): {e}", flush=True)
+        from .log import logger
+        logger.warning("brand_consistency_check_failed_non_fatal", error=str(e))
         return []
     if isinstance(result, dict) and not result.get("ok", True):
         return [v for v in (result.get("violations") or []) if isinstance(v, dict)]
@@ -928,9 +929,11 @@ def _gen_one_shot(
         # remote URL while it's still valid.
         display_url = original_url
         metadata["download_error"] = str(e)
-        print(
-            f"[shot {shot_id}] download to local failed (non-fatal): {e}",
-            flush=True,
+        from .log import logger
+        logger.warning(
+            "shot_image_local_download_failed_non_fatal",
+            shot_id=shot_id,
+            error=str(e),
         )
 
     storage.update_shot_image(
@@ -1193,7 +1196,10 @@ def _gen_video(session_id: str, selected_ids: list[int]) -> None:
                 # zh-* voice asked to speak English). Keep going; the UI
                 # will play the silent video and show a small note.
                 meta_extra["audio_error"] = str(e)[:300]
-                print(f"[video {session_id}] TTS failed (non-fatal): {e}", flush=True)
+                from .log import logger
+                logger.warning(
+                    "tts_failed_non_fatal", session_id=session_id, error=str(e)
+                )
 
         storage.upsert_video(
             session_id=session_id,
