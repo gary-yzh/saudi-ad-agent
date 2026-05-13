@@ -59,9 +59,20 @@ allowance.
 # random one — DO NOT reuse the development demo key.
 flyctl secrets set SAA_MASTER_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 
-# Optional but recommended: protect the /api/audit endpoint with a token.
-flyctl secrets set SAA_ADMIN_TOKEN=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+# REQUIRED for public deploy: HTTP Basic Auth password protecting
+# /settings, /api/config, /api/audit. Without this, anyone with the
+# public URL can read your API keys.
+flyctl secrets set SAA_ADMIN_USERNAME=admin
+flyctl secrets set SAA_ADMIN_PASSWORD=$(python -c "import secrets; print(secrets.token_urlsafe(24))")
+# Print the password ONCE so you can save it to a password manager —
+# you'll need it every time you open /settings:
+flyctl secrets list
+# Run: flyctl ssh console -C 'env | grep SAA_ADMIN_PASSWORD' to see the value.
 ```
+
+**Save the SAA_ADMIN_PASSWORD value** in your password manager — the
+browser will prompt for it the first time you open `/settings` on the
+deployed URL.
 
 Secrets are encrypted at rest in Fly's secrets store, only mounted into
 the container as env vars at runtime. They never appear in `fly.toml` or

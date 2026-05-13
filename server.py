@@ -37,7 +37,9 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+
+from src.auth import require_admin
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -137,7 +139,11 @@ def page_run() -> FileResponse:
 
 
 @app.get("/settings")
-def page_settings() -> FileResponse:
+def page_settings(_user: str = Depends(require_admin)) -> FileResponse:
+    # ADMIN-PROTECTED. Without this gate, anyone with the public URL
+    # could open /settings and read the API key form (which, even with
+    # password-masked inputs, exposes the keys via "show password"
+    # toggles + the underlying /api/config call the page fires).
     return FileResponse(WEB / "settings.html")
 
 
@@ -147,20 +153,26 @@ def page_settings() -> FileResponse:
 
 
 @app.get("/api/config")
-def get_config() -> JSONResponse:
+def get_config(_user: str = Depends(require_admin)) -> JSONResponse:
+    # ADMIN-PROTECTED: returns plaintext API keys (after decryption).
+    # Anyone with the URL but without credentials gets a 401 + browser
+    # native login prompt. See src/auth.py for the auth logic.
     return JSONResponse(storage.load_config())
 
 
 @app.post("/api/config")
-def post_config(payload: dict[str, Any], request: Request) -> JSONResponse:
-    # Pass actor info through to storage so audit_log captures who did
-    # this. For now `actor` is "anonymous" (no user system yet); when SSO
-    # lands, swap in the authenticated user's email or ID.
+def post_config(
+    payload: dict[str, Any],
+    request: Request,
+    user: str = Depends(require_admin),
+) -> JSONResponse:
+    # ADMIN-PROTECTED: writes to the config table (including API keys).
+    # `actor` now captures the authenticated admin username for audit.
     from src.log import request_id_var
     storage.save_config(
         payload,
         replace_missing=True,
-        actor="anonymous",
+        actor=user,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
         request_id=request_id_var.get(),
@@ -170,6 +182,10 @@ def post_config(payload: dict[str, Any], request: Request) -> JSONResponse:
 
 @app.get("/api/config/status")
 def get_config_status() -> JSONResponse:
+    # PUBLIC endpoint. Returns boolean state (which required keys are
+    # missing) but NOT key values. Safe to expose: the UI uses this to
+    # render the red-dot indicator on the Settings link. Knowing "the
+    # owner hasn't configured TTS yet" doesn't help an attacker.
     return JSONResponse(storage.status())
 
 
@@ -180,25 +196,15 @@ def get_audit_log(
     after_id: int = 0,
     actor: str | None = None,
     action: str | None = None,
+    _user: str = Depends(require_admin),
 ) -> JSONResponse:
-    """Read recent audit_log rows. Guarded by a simple admin token check
-    until the user / RBAC system lands — pass `?token=<SAA_ADMIN_TOKEN>`
-    matching the env var, or run locally with no SAA_ADMIN_TOKEN set
-    (then localhost is allowed without a token).
+    """ADMIN-PROTECTED. Read recent audit_log rows. Authenticated via
+    HTTP Basic Auth (SAA_ADMIN_USERNAME / SAA_ADMIN_PASSWORD env vars).
+
+    Note: an older `?token=<SAA_ADMIN_TOKEN>` query-param scheme was
+    deprecated in favour of the unified Basic Auth dependency — one
+    auth surface, fewer ways to misconfigure.
     """
-    admin_token = os.getenv("SAA_ADMIN_TOKEN", "").strip()
-    if admin_token:
-        client_token = request.query_params.get("token", "")
-        if client_token != admin_token:
-            raise HTTPException(403, "Audit log access requires admin token.")
-    else:
-        # Dev-mode fallback: allow localhost only.
-        if request.client and request.client.host not in ("127.0.0.1", "::1"):
-            raise HTTPException(
-                403,
-                "Audit log is unprotected — set SAA_ADMIN_TOKEN in env "
-                "before exposing this server outside localhost.",
-            )
     rows = storage.list_audit_log(
         limit=limit, after_id=after_id, actor=actor, action=action
     )
