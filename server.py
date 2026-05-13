@@ -37,7 +37,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -152,14 +152,57 @@ def get_config() -> JSONResponse:
 
 
 @app.post("/api/config")
-def post_config(payload: dict[str, Any]) -> JSONResponse:
-    storage.save_config(payload, replace_missing=True)
+def post_config(payload: dict[str, Any], request: Request) -> JSONResponse:
+    # Pass actor info through to storage so audit_log captures who did
+    # this. For now `actor` is "anonymous" (no user system yet); when SSO
+    # lands, swap in the authenticated user's email or ID.
+    from src.log import request_id_var
+    storage.save_config(
+        payload,
+        replace_missing=True,
+        actor="anonymous",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        request_id=request_id_var.get(),
+    )
     return JSONResponse({"ok": True, "status": storage.status()})
 
 
 @app.get("/api/config/status")
 def get_config_status() -> JSONResponse:
     return JSONResponse(storage.status())
+
+
+@app.get("/api/audit")
+def get_audit_log(
+    request: Request,
+    limit: int = 100,
+    after_id: int = 0,
+    actor: str | None = None,
+    action: str | None = None,
+) -> JSONResponse:
+    """Read recent audit_log rows. Guarded by a simple admin token check
+    until the user / RBAC system lands — pass `?token=<SAA_ADMIN_TOKEN>`
+    matching the env var, or run locally with no SAA_ADMIN_TOKEN set
+    (then localhost is allowed without a token).
+    """
+    admin_token = os.getenv("SAA_ADMIN_TOKEN", "").strip()
+    if admin_token:
+        client_token = request.query_params.get("token", "")
+        if client_token != admin_token:
+            raise HTTPException(403, "Audit log access requires admin token.")
+    else:
+        # Dev-mode fallback: allow localhost only.
+        if request.client and request.client.host not in ("127.0.0.1", "::1"):
+            raise HTTPException(
+                403,
+                "Audit log is unprotected — set SAA_ADMIN_TOKEN in env "
+                "before exposing this server outside localhost.",
+            )
+    rows = storage.list_audit_log(
+        limit=limit, after_id=after_id, actor=actor, action=action
+    )
+    return JSONResponse({"items": rows, "count": len(rows)})
 
 
 # ---------------------------------------------------------------------------

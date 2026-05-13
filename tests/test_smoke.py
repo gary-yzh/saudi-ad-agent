@@ -183,6 +183,54 @@ def test_check_user_input_respects_negation_context():
     #  the principle being tested is that negation context is considered)
 
 
+def test_audit_log_records_config_changes_with_redaction():
+    """save_config must write one audit row per changed key and redact
+    sensitive values (API keys) so the audit table never contains the
+    plaintext secret. This is a hard PDPL / SOC 2 requirement."""
+    import tempfile
+    from pathlib import Path
+    from unittest.mock import patch
+
+    # Point storage at a throwaway DB for this test
+    tmp = Path(tempfile.mkdtemp()) / "test.db"
+    with patch("src.storage.DB_PATH", tmp):
+        from src import storage
+        # Force a fresh connection (table creation)
+        with storage._connect() as _:
+            pass
+
+        # 1. Create — should produce a config.create audit row
+        storage.save_config(
+            {"openai_api_key": "sk-secret-123", "openai_model": "gpt-4o-mini"},
+            actor="test_user",
+            ip_address="127.0.0.1",
+        )
+        rows = storage.list_audit_log(limit=50)
+        # 2 changes => 2 audit rows
+        assert len(rows) == 2
+        api_row = next(r for r in rows if r["target"] == "openai_api_key")
+        model_row = next(r for r in rows if r["target"] == "openai_model")
+
+        # Sensitive key must be redacted in audit, NOT in plaintext
+        assert "sk-secret-123" not in str(api_row), api_row
+        assert isinstance(api_row["after_value"], str)
+        assert "redacted" in api_row["after_value"]
+        # Non-sensitive key keeps its real value
+        assert model_row["after_value"] == "gpt-4o-mini"
+
+        # 2. Update — produces a config.update audit row
+        storage.save_config(
+            {"openai_api_key": "sk-secret-XYZ", "openai_model": "gpt-4o-mini"},
+            actor="test_user",
+        )
+        rows = storage.list_audit_log(limit=50)
+        update_rows = [r for r in rows if r["action"] == "config.update"]
+        assert len(update_rows) == 1, "model unchanged should not log, key changed should"
+        # Old value also redacted (so even leaked audit DB doesn't leak old key)
+        assert "sk-secret-123" not in str(update_rows[0])
+        assert "sk-secret-XYZ" not in str(update_rows[0])
+
+
 def test_cost_estimator_per_asset_lands_in_expected_range():
     """The cost estimator powers our sales pitch — every customer
     conversation cites "tens of cents per asset". Pin the Bateel sample
