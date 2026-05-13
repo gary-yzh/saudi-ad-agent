@@ -21,7 +21,10 @@ primary_region = 'fra'
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 0
+  # TEMP: keep 1 machine warm during auth-gate testing so SSH / debug
+  # works without the wake-on-HTTP dance. Revert to 0 once verified to
+  # save free-tier hours (~$0/mo vs ~$2/mo if always-on). 2026-05-13.
+  min_machines_running = 1
   processes = ['app']
 
   [[http_service.checks]]
