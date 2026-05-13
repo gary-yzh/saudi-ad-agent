@@ -478,11 +478,20 @@ def has_required_keys() -> bool:
 
 
 def status() -> dict[str, Any]:
+    """Public-safe config snapshot. Includes non-sensitive setting values
+    (tts_speaker is a model identifier, not a credential) so the Studio
+    can render previews on page load without hitting the admin-only
+    /api/config endpoint — which would trigger the browser's Basic Auth
+    dialog before the user even decided to do anything.
+    """
     cfg = load_config()
     return {
         "configured": all(not _is_empty(cfg.get(k)) for k in REQUIRED_KEYS),
         "missing": [k for k in REQUIRED_KEYS if _is_empty(cfg.get(k))],
         "set_keys": sorted(k for k in cfg if not _is_empty(cfg.get(k))),
+        # Non-sensitive settings safe to expose publicly. Used by the
+        # Studio's voiceover-locale preview on first page load.
+        "tts_speaker": cfg.get("tts_speaker") or None,
     }
 
 

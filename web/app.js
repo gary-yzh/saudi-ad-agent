@@ -487,9 +487,15 @@ function localeFromSpeakerClient(speaker) {
 async function previewVoiceoverLocale() {
   // Don't override a session-bound locale that's already been shown.
   if (SESSION_ID) return;
+  // IMPORTANT: hit the PUBLIC /api/config/status, not the admin-only
+  // /api/config. The latter returns 401 + WWW-Authenticate for any
+  // anonymous visitor, which makes the browser pop its native login
+  // dialog the moment the Studio page loads — before the user has
+  // even decided whether they want to sign in. status() exposes just
+  // the non-sensitive tts_speaker setting for this preview.
   try {
-    const cfg = await fetch("/api/config").then((r) => r.json());
-    const locale = localeFromSpeakerClient(cfg?.tts_speaker);
+    const status = await fetch("/api/config/status").then((r) => r.json());
+    const locale = localeFromSpeakerClient(status?.tts_speaker);
     showVoiceoverInfo(locale);
   } catch {
     /* no config yet — skip silently */
