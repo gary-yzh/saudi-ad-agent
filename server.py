@@ -304,7 +304,23 @@ def _session_view(session_id: str) -> dict[str, Any]:
     }
 
 
-@app.post("/api/sessions")
+# ---------------------------------------------------------------------------
+# Run / session endpoints
+# ---------------------------------------------------------------------------
+#
+# All POST endpoints below are admin-gated. The threat model: a public URL
+# means any visitor can hit these handlers, and every one of them spends
+# money — LLM planner calls, Seedream image gen, OpenSpeech TTS, Seedance
+# video render (the last one is ~$0.50 per call). Without the gate, a
+# stranger with the URL could burn through the owner's vendor credit in
+# minutes. GET endpoints stay public so visitors can still see the UI and
+# poll their own (already-started) sessions.
+#
+# Frontend handles 401 from these endpoints by showing a sign-in toast —
+# see web/app.js wrapFetchForAuth().
+
+
+@app.post("/api/sessions", dependencies=[Depends(require_admin)])
 def create_session(req: CreateSessionRequest) -> JSONResponse:
     sid = sessions.new_session_id()
     cfg = storage.load_config()
@@ -321,7 +337,7 @@ def get_session(sid: str) -> JSONResponse:
     return JSONResponse(_session_view(sid))
 
 
-@app.post("/api/sessions/{sid}/messages")
+@app.post("/api/sessions/{sid}/messages", dependencies=[Depends(require_admin)])
 def post_message(sid: str, req: ChatRequest) -> JSONResponse:
     _require_keys()
     s = storage.get_session(sid)
@@ -383,7 +399,7 @@ def post_message(sid: str, req: ChatRequest) -> JSONResponse:
 MAX_BRAND_MANUAL_BYTES = 20 * 1024 * 1024  # 20 MB
 
 
-@app.post("/api/sessions/{sid}/brand-manual")
+@app.post("/api/sessions/{sid}/brand-manual", dependencies=[Depends(require_admin)])
 async def upload_brand_manual(sid: str, file: UploadFile = File(...)) -> JSONResponse:
     if storage.get_session(sid) is None:
         raise HTTPException(404, "Session not found")
@@ -425,7 +441,7 @@ def remove_brand_manual(sid: str) -> JSONResponse:
 MAX_BRAND_LOGO_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
-@app.post("/api/sessions/{sid}/brand-logo")
+@app.post("/api/sessions/{sid}/brand-logo", dependencies=[Depends(require_admin)])
 async def upload_brand_logo(sid: str, file: UploadFile = File(...)) -> JSONResponse:
     if storage.get_session(sid) is None:
         raise HTTPException(404, "Session not found")
@@ -474,7 +490,7 @@ class RefineShotRequest(BaseModel):
     instruction: str = Field(..., min_length=1, max_length=2000)
 
 
-@app.post("/api/sessions/{sid}/shots/{shot_id}/refine")
+@app.post("/api/sessions/{sid}/shots/{shot_id}/refine", dependencies=[Depends(require_admin)])
 def refine_shot(sid: str, shot_id: int, req: RefineShotRequest) -> JSONResponse:
     _require_keys()
     try:
@@ -489,7 +505,7 @@ def refine_shot(sid: str, shot_id: int, req: RefineShotRequest) -> JSONResponse:
     return JSONResponse({"ok": True})
 
 
-@app.post("/api/sessions/{sid}/shots/{shot_id}/retry")
+@app.post("/api/sessions/{sid}/shots/{shot_id}/retry", dependencies=[Depends(require_admin)])
 def retry_shot(sid: str, shot_id: int) -> JSONResponse:
     _require_keys()
     try:
@@ -499,7 +515,7 @@ def retry_shot(sid: str, shot_id: int) -> JSONResponse:
     return JSONResponse({"ok": True})
 
 
-@app.post("/api/sessions/{sid}/storyboard/confirm")
+@app.post("/api/sessions/{sid}/storyboard/confirm", dependencies=[Depends(require_admin)])
 def confirm_storyboard(sid: str) -> JSONResponse:
     _require_keys()
     try:
@@ -515,7 +531,7 @@ def get_images(sid: str) -> JSONResponse:
     return JSONResponse(sessions.list_shot_statuses(sid))
 
 
-@app.post("/api/sessions/{sid}/video")
+@app.post("/api/sessions/{sid}/video", dependencies=[Depends(require_admin)])
 def post_video(sid: str, req: VideoRequest) -> JSONResponse:
     _require_keys()
     sessions.start_video_generation(sid, req.selected_shot_ids, _executor)
@@ -541,7 +557,7 @@ class RunRequest(BaseModel):
     target_audience: str = "Saudi adults 25-45, parents, urban"
 
 
-@app.post("/api/run")
+@app.post("/api/run", dependencies=[Depends(require_admin)])
 def run(req: RunRequest) -> JSONResponse:
     _require_keys()
     cfg = storage.load_config()

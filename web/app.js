@@ -99,6 +99,54 @@ function saveSessionId(id) {
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 
+// ---------- Auth: fetch wrapper + sign-in toast -----------------------------
+//
+// Every POST /api/* endpoint is admin-gated server-side (see server.py).
+// A visitor without cached HTTP Basic Auth creds will see 401 the moment
+// they click Send / Generate. Instead of a silent failure or a raw console
+// error, we wrap window.fetch and surface a calm Apple-style toast directing
+// them to /settings. Once they enter creds there, the browser caches them
+// for the realm and all subsequent same-origin fetches automatically include
+// the Authorization header — zero extra work in our code.
+(function installAuthFetchWrapper() {
+  const _origFetch = window.fetch.bind(window);
+  let toastShown = false;
+
+  window.fetch = async (...args) => {
+    const res = await _origFetch(...args);
+    if (res.status === 401) {
+      const url = typeof args[0] === "string" ? args[0] : (args[0] && args[0].url) || "";
+      if (url.indexOf("/api/") !== -1) showSignInToast();
+    }
+    return res;
+  };
+
+  function showSignInToast() {
+    if (toastShown) return;
+    toastShown = true;
+    const toast = document.createElement("div");
+    toast.className = "auth-toast";
+    toast.innerHTML = `
+      <svg class="auth-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4" y="11" width="16" height="10" rx="2"/>
+        <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+      </svg>
+      <div class="auth-toast-text">
+        <strong>Sign in to generate</strong>
+        <span>This Studio is admin-only for cost control.</span>
+      </div>
+      <a class="auth-toast-btn" href="/settings" target="_blank" rel="noopener">Sign in</a>
+      <button class="auth-toast-close" type="button" aria-label="Dismiss">&times;</button>
+    `;
+    toast.querySelector(".auth-toast-close").addEventListener("click", () => {
+      toast.remove();
+      toastShown = false;
+    });
+    document.body.appendChild(toast);
+  }
+})();
+
 let SESSION_ID = null;
 let imagePollHandle = null;
 let videoPollHandle = null;

@@ -878,6 +878,72 @@ code {
   .footer-inner { flex-direction: column; gap: 4px; }
 }
 
+/* ---------- Auth toast ----------
+   Appears top-right when a /api/* request returns 401 (visitor not signed
+   in). Calm card, not a modal — visitor can still click around. Sign-in
+   link opens /settings in a new tab so the Studio tab keeps its state.   */
+.auth-toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-elevated);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 380px;
+  font-size: 13px;
+}
+.auth-toast-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--emerald);
+  flex: 0 0 auto;
+}
+.auth-toast-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.auth-toast-text strong {
+  font-weight: 600;
+  color: var(--text);
+}
+.auth-toast-text span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.auth-toast-btn {
+  background: var(--emerald);
+  color: white;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 999px;
+  transition: background 0.15s;
+  flex: 0 0 auto;
+}
+.auth-toast-btn:hover { background: var(--emerald-dark); }
+.auth-toast-close {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  flex: 0 0 auto;
+  transition: color 0.15s;
+}
+.auth-toast-close:hover { color: var(--text); }
+
 /* ---------- Nav (header) ----------
    Apple-style segmented tab pattern: pill container with two equal-weight
    tabs. Inactive tabs have a hover background so it's obvious they're
