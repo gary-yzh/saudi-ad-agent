@@ -13,6 +13,10 @@ default.
 
 ![End-to-end demo — Bateel premium-dates brief through 4-shot storyboard, Seedream stills, and a 9:16 Seedance video with synced TTS voiceover (first 8 s of a 15 s render).](docs/demo.gif)
 
+> 🌐 **Try it live**: deployment URL goes here once it's up (see
+> [DEPLOY.md](DEPLOY.md) — ~10 minutes to your own Fly.io instance).
+> Or run locally: see §3 Quickstart below.
+
 ---
 
 ## 1. Capabilities

@@ -1,0 +1,50 @@
+# Exclude from the image to keep it small and avoid leaking dev artifacts.
+
+# Python build cruft
+.venv/
+.venv-*/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Local DB — Fly Volume gives us a fresh persistent DB
+data/app.db
+data/app.db-journal
+
+# Generated assets — these regenerate in production
+outputs/runs/
+outputs/logos/
+
+# Secrets — must never enter the image
+.env
+.env.local
+*.pem
+*.key
+
+# Git history (we don't need it inside the container)
+.git/
+.gitignore
+.githooks/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+server.log
+
+# Local diagnostic scripts (gitignored anyway, but belt + braces)
+probe_*.py
+
+# OS junk
+.DS_Store
+__MACOSX/
+
+# Build / packaging
+*.zip
+build/
+dist/
+*.egg-info/

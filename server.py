@@ -583,4 +583,20 @@ def run(req: RunRequest) -> JSONResponse:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=False)
+    # Bind to 0.0.0.0 when running inside a container (Fly.io, Docker,
+    # K8s) so the host's reverse proxy can reach us. Locally we stay on
+    # 127.0.0.1 to avoid opening the service to the local network. The
+    # SAA_BIND_HOST env var lets the operator override this without
+    # touching code (e.g. for an internal-only deploy on a VPC subnet).
+    bind_host = os.getenv("SAA_BIND_HOST")
+    if not bind_host:
+        # Heuristic: containers commonly set this. Fly.io sets FLY_APP_NAME.
+        in_container = (
+            os.getenv("FLY_APP_NAME")
+            or os.getenv("KUBERNETES_SERVICE_HOST")
+            or os.path.exists("/.dockerenv")
+        )
+        bind_host = "0.0.0.0" if in_container else "127.0.0.1"
+    bind_port = int(os.getenv("PORT", "8000"))
+
+    uvicorn.run("server:app", host=bind_host, port=bind_port, reload=False)
