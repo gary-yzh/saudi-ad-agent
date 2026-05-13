@@ -59,20 +59,32 @@ allowance.
 # random one — DO NOT reuse the development demo key.
 flyctl secrets set SAA_MASTER_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 
-# REQUIRED for public deploy: HTTP Basic Auth password protecting
-# /settings, /api/config, /api/audit. Without this, anyone with the
-# public URL can read your API keys.
+# REQUIRED for public deploy: ADMIN credentials. This account can view
+# Settings (API keys), edit config, and read the audit log. Keep this
+# password private — only you should know it.
 flyctl secrets set SAA_ADMIN_USERNAME=admin
 flyctl secrets set SAA_ADMIN_PASSWORD=$(python -c "import secrets; print(secrets.token_urlsafe(24))")
-# Print the password ONCE so you can save it to a password manager —
-# you'll need it every time you open /settings:
-flyctl secrets list
-# Run: flyctl ssh console -C 'env | grep SAA_ADMIN_PASSWORD' to see the value.
+
+# OPTIONAL but recommended for public demo: DEMO credentials. This
+# account can use the Studio (generation features) but CANNOT see
+# Settings or audit. Share the demo password with interviewers / demo
+# viewers — even if it leaks, your API keys stay private.
+flyctl secrets set SAA_DEMO_USERNAME=demo
+flyctl secrets set SAA_DEMO_PASSWORD=$(python -c "import secrets; print(secrets.token_urlsafe(16))")
+
+# Print both passwords ONCE so you can save them — you'll need
+# admin for /settings, and demo is the one you share publicly:
+flyctl ssh console -C 'env | grep SAA_'
 ```
 
-**Save the SAA_ADMIN_PASSWORD value** in your password manager — the
-browser will prompt for it the first time you open `/settings` on the
-deployed URL.
+**Save BOTH passwords**: admin in your private password manager, demo
+in a separate note you'll share with viewers. The browser will prompt
+the first time you open `/settings` (admin) or click Generate on the
+Studio (admin OR demo, either works).
+
+If `SAA_DEMO_PASSWORD` is unset, demo role doesn't exist and only the
+admin can use the Studio. Set it later (without redeploying) with
+`flyctl secrets set SAA_DEMO_PASSWORD=...`.
 
 Secrets are encrypted at rest in Fly's secrets store, only mounted into
 the container as env vars at runtime. They never appear in `fly.toml` or

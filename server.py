@@ -40,7 +40,7 @@ from typing import Any, Optional
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.security import HTTPBasicCredentials
 
-from src.auth import basic_security, require_admin
+from src.auth import basic_security, require_admin, require_user
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -149,17 +149,23 @@ def page_settings(
     # password-masked inputs, exposes the keys via "show password"
     # toggles + the underlying /api/config call the page fires).
     #
-    # If the visitor cancels the browser's Basic Auth dialog, we don't
-    # want them staring at a raw JSON error — render a calm HTML page
-    # that bounces them back to Studio. The 401 + WWW-Authenticate is
-    # still set, so the dialog still fires on first visit.
+    # If the visitor cancels the Basic Auth dialog (401) OR signs in as
+    # demo and tries /settings (403), we don't want them staring at a
+    # raw JSON error — render a calm HTML page that bounces them back to
+    # Studio. We preserve the original status code so browsers / proxies
+    # see the real failure mode. WWW-Authenticate is only sent on 401
+    # (no creds / wrong creds) so the browser re-prompts; on 403 we don't
+    # want to re-prompt because the demo role can't ever access this.
     try:
         require_admin(request, creds)
-    except HTTPException:
+    except HTTPException as exc:
+        headers = {}
+        if exc.status_code == 401:
+            headers["WWW-Authenticate"] = 'Basic realm="saudi-ad-agent"'
         return FileResponse(
             WEB / "auth_required.html",
-            status_code=401,
-            headers={"WWW-Authenticate": 'Basic realm="saudi-ad-agent admin"'},
+            status_code=exc.status_code,
+            headers=headers,
         )
     return FileResponse(WEB / "settings.html")
 
@@ -308,19 +314,21 @@ def _session_view(session_id: str) -> dict[str, Any]:
 # Run / session endpoints
 # ---------------------------------------------------------------------------
 #
-# All POST endpoints below are admin-gated. The threat model: a public URL
-# means any visitor can hit these handlers, and every one of them spends
-# money — LLM planner calls, Seedream image gen, OpenSpeech TTS, Seedance
-# video render (the last one is ~$0.50 per call). Without the gate, a
-# stranger with the URL could burn through the owner's vendor credit in
-# minutes. GET endpoints stay public so visitors can still see the UI and
-# poll their own (already-started) sessions.
+# All POST endpoints below are gated by `require_user` — they accept EITHER
+# the admin role OR the demo role. The threat model: a public URL means
+# any visitor can hit these handlers, and every one of them spends money
+# (LLM, Seedream, OpenSpeech, Seedance — the last one ~$0.50/render). The
+# admin keeps the master password private; the demo password can be shared
+# with interviewers / demo audiences so they can use the Studio without
+# being able to view Settings (which is admin-only — see require_admin).
+# GET endpoints stay public so visitors can poll an already-started sid
+# (404 if they don't own one).
 #
 # Frontend handles 401 from these endpoints by showing a sign-in toast —
-# see web/app.js wrapFetchForAuth().
+# see web/app.js installAuthFetchWrapper().
 
 
-@app.post("/api/sessions", dependencies=[Depends(require_admin)])
+@app.post("/api/sessions", dependencies=[Depends(require_user)])
 def create_session(req: CreateSessionRequest) -> JSONResponse:
     sid = sessions.new_session_id()
     cfg = storage.load_config()
@@ -337,7 +345,7 @@ def get_session(sid: str) -> JSONResponse:
     return JSONResponse(_session_view(sid))
 
 
-@app.post("/api/sessions/{sid}/messages", dependencies=[Depends(require_admin)])
+@app.post("/api/sessions/{sid}/messages", dependencies=[Depends(require_user)])
 def post_message(sid: str, req: ChatRequest) -> JSONResponse:
     _require_keys()
     s = storage.get_session(sid)
@@ -399,7 +407,7 @@ def post_message(sid: str, req: ChatRequest) -> JSONResponse:
 MAX_BRAND_MANUAL_BYTES = 20 * 1024 * 1024  # 20 MB
 
 
-@app.post("/api/sessions/{sid}/brand-manual", dependencies=[Depends(require_admin)])
+@app.post("/api/sessions/{sid}/brand-manual", dependencies=[Depends(require_user)])
 async def upload_brand_manual(sid: str, file: UploadFile = File(...)) -> JSONResponse:
     if storage.get_session(sid) is None:
         raise HTTPException(404, "Session not found")
@@ -441,7 +449,7 @@ def remove_brand_manual(sid: str) -> JSONResponse:
 MAX_BRAND_LOGO_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
-@app.post("/api/sessions/{sid}/brand-logo", dependencies=[Depends(require_admin)])
+@app.post("/api/sessions/{sid}/brand-logo", dependencies=[Depends(require_user)])
 async def upload_brand_logo(sid: str, file: UploadFile = File(...)) -> JSONResponse:
     if storage.get_session(sid) is None:
         raise HTTPException(404, "Session not found")
@@ -490,7 +498,7 @@ class RefineShotRequest(BaseModel):
     instruction: str = Field(..., min_length=1, max_length=2000)
 
 
-@app.post("/api/sessions/{sid}/shots/{shot_id}/refine", dependencies=[Depends(require_admin)])
+@app.post("/api/sessions/{sid}/shots/{shot_id}/refine", dependencies=[Depends(require_user)])
 def refine_shot(sid: str, shot_id: int, req: RefineShotRequest) -> JSONResponse:
     _require_keys()
     try:
@@ -505,7 +513,7 @@ def refine_shot(sid: str, shot_id: int, req: RefineShotRequest) -> JSONResponse:
     return JSONResponse({"ok": True})
 
 
-@app.post("/api/sessions/{sid}/shots/{shot_id}/retry", dependencies=[Depends(require_admin)])
+@app.post("/api/sessions/{sid}/shots/{shot_id}/retry", dependencies=[Depends(require_user)])
 def retry_shot(sid: str, shot_id: int) -> JSONResponse:
     _require_keys()
     try:
@@ -515,7 +523,7 @@ def retry_shot(sid: str, shot_id: int) -> JSONResponse:
     return JSONResponse({"ok": True})
 
 
-@app.post("/api/sessions/{sid}/storyboard/confirm", dependencies=[Depends(require_admin)])
+@app.post("/api/sessions/{sid}/storyboard/confirm", dependencies=[Depends(require_user)])
 def confirm_storyboard(sid: str) -> JSONResponse:
     _require_keys()
     try:
@@ -531,7 +539,7 @@ def get_images(sid: str) -> JSONResponse:
     return JSONResponse(sessions.list_shot_statuses(sid))
 
 
-@app.post("/api/sessions/{sid}/video", dependencies=[Depends(require_admin)])
+@app.post("/api/sessions/{sid}/video", dependencies=[Depends(require_user)])
 def post_video(sid: str, req: VideoRequest) -> JSONResponse:
     _require_keys()
     sessions.start_video_generation(sid, req.selected_shot_ids, _executor)
@@ -557,7 +565,7 @@ class RunRequest(BaseModel):
     target_audience: str = "Saudi adults 25-45, parents, urban"
 
 
-@app.post("/api/run", dependencies=[Depends(require_admin)])
+@app.post("/api/run", dependencies=[Depends(require_user)])
 def run(req: RunRequest) -> JSONResponse:
     _require_keys()
     cfg = storage.load_config()
