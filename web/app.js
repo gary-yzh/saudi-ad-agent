@@ -138,85 +138,13 @@ function refreshSendButtonLabel() {
 }
 
 
-// ---------- Onboarding banner ------------------------------------------
-//
-// First-run guidance: a 3-step strip above the Studio that fades to
-// ✓ as the user completes each step. Hides permanently once all
-// blocking steps are done OR the user dismisses it. Apple-style:
-// stays out of the way, never blocks the actual UI.
-const ONBOARDING_KEYS = {
-  dismissed: "saa.onboarding.dismissed",
-  brand: "saa.onboarding.brand_seen",
-  sample: "saa.onboarding.sample_tried",
-};
-
-async function refreshOnboardingBanner() {
-  const banner = $("onboarding-banner");
-  if (!banner) return;
-  if (localStorage.getItem(ONBOARDING_KEYS.dismissed) === "1") {
-    banner.classList.add("hidden");
-    return;
-  }
-
-  // Step 1: API keys configured? Read from /api/config/status.
-  let keysOk = false;
-  try {
-    const r = await fetch("/api/config/status");
-    if (r.ok) {
-      const status = await r.json();
-      keysOk = !status.missing || status.missing.length === 0;
-    }
-  } catch {
-    // Network error — assume not configured; banner stays visible.
-  }
-
-  // Step 2 + 3: tracked via localStorage flags we set elsewhere.
-  const brandOk = localStorage.getItem(ONBOARDING_KEYS.brand) === "1";
-  const sampleOk = localStorage.getItem(ONBOARDING_KEYS.sample) === "1";
-
-  // Auto-hide once the user has both configured keys AND tried the sample.
-  // Brand manual is optional, so we don't gate on it.
-  if (keysOk && sampleOk) {
-    banner.classList.add("hidden");
-    localStorage.setItem(ONBOARDING_KEYS.dismissed, "1");
-    return;
-  }
-
-  banner.classList.remove("hidden");
-  const setStepState = (id, state) => {
-    const el = $(id);
-    if (!el) return;
-    el.classList.remove("active", "done");
-    if (state) el.classList.add(state);
-  };
-  setStepState("onb-step-keys", keysOk ? "done" : "active");
-  setStepState("onb-step-brand", brandOk ? "done" : "");
-  setStepState(
-    "onb-step-sample",
-    sampleOk ? "done" : keysOk ? "active" : "",
-  );
-}
-
 (function init() {
   setStepperFromState("chat");
 
   // ---- Phase 1: synchronous listeners ----
 
-  // Dismiss-the-onboarding-banner button.
-  const dismissBtn = document.getElementById("onboarding-dismiss");
-  if (dismissBtn) {
-    dismissBtn.addEventListener("click", () => {
-      localStorage.setItem(ONBOARDING_KEYS.dismissed, "1");
-      const banner = $("onboarding-banner");
-      if (banner) banner.classList.add("hidden");
-    });
-  }
-
   // Sample brief — load into textarea and focus.
   $("load-sample").addEventListener("click", () => {
-    // Onboarding step 3 — mark sample tried.
-    localStorage.setItem(ONBOARDING_KEYS.sample, "1");
-    refreshOnboardingBanner();
     const ti = $("chat-input");
     ti.value = SAMPLE_BRIEF;
     ti.dispatchEvent(new Event("input"));
@@ -318,8 +246,6 @@ async function refreshOnboardingBanner() {
   // Also derive a preview of the voiceover language from the saved TTS
   // speaker so the user sees the indicator before they even start chatting.
   previewVoiceoverLocale().catch(() => {});
-  // First-run onboarding strip — decide whether to show / hide on page load.
-  refreshOnboardingBanner().catch(() => {});
   // Initial send-button label — chat-log may already have items if
   // restoreView() repopulated a saved session.
   refreshSendButtonLabel();
@@ -1412,9 +1338,6 @@ async function onBrandManualPicked(e) {
     }
     const j = await r.json();
     showBrandManualLoaded(j.manual);
-    // Onboarding step 2 — mark brand manual seen.
-    localStorage.setItem(ONBOARDING_KEYS.brand, "1");
-    refreshOnboardingBanner();
   } catch (err) {
     showBrandManualEmpty();
     showBriefAssetError(`Brand manual upload failed: ${err.message || err}`);

@@ -41,30 +41,6 @@
     </button>
   </header>
 
-  <!-- First-run onboarding strip. Shows only while there's still a setup
-       step the user hasn't done (no API keys yet, no sample tried). Once
-       they're set up — or once they click the × — we hide it forever for
-       this browser via localStorage. Apple-style: silent steady state, no
-       modal dialogs, no popovers, just a quiet hint until it's irrelevant. -->
-  <div id="onboarding-banner" class="onboarding-banner hidden">
-    <div class="onboarding-banner-inner">
-      <span class="onboarding-step" id="onb-step-keys">
-        <span class="onboarding-step-marker">1</span>
-        <a href="/settings" class="onboarding-step-link">Configure your API keys</a>
-      </span>
-      <span class="onboarding-step" id="onb-step-brand">
-        <span class="onboarding-step-marker">2</span>
-        <span class="onboarding-step-text">Upload a brand manual <em class="muted">(optional)</em></span>
-      </span>
-      <span class="onboarding-step" id="onb-step-sample">
-        <span class="onboarding-step-marker">3</span>
-        <span class="onboarding-step-text">Try the Bateel sample brief</span>
-      </span>
-    </div>
-    <button id="onboarding-dismiss" class="onboarding-dismiss" type="button"
-            title="Dismiss this guide" aria-label="Dismiss onboarding">×</button>
-  </div>
-
   <main class="run-main two-col">
 
     <!-- ============ LEFT: vertical step nav ============ -->
