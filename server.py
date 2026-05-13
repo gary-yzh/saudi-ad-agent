@@ -30,6 +30,8 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import time
+import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -52,6 +54,32 @@ RUNS_DIR.mkdir(parents=True, exist_ok=True)
 app = FastAPI(title="Saudi Ad Agent")
 app.mount("/static", StaticFiles(directory=str(WEB)), name="static")
 app.mount("/runs", StaticFiles(directory=str(RUNS_DIR)), name="runs")
+
+
+# Global catch-all for unexpected exceptions. Anything that isn't already
+# an HTTPException ends up here. We log the full trace to the server
+# console for ops + return a friendly message + a correlation ID to the
+# client — never leak the Python exception type, stack, or message content
+# (it might contain a request URL with embedded credentials, a SQL error
+# revealing schema, or LLM raw output). The correlation ID lets a user
+# call support and lets us find their trace fast.
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request, exc: Exception):
+    from fastapi.responses import JSONResponse as _JSON
+    support_id = f"err-{int(time.time())}-{uuid.uuid4().hex[:6]}"
+    print(
+        f"\n=== unhandled exception on {request.url.path} "
+        f"({support_id}) ===\n{traceback.format_exc()}",
+        flush=True,
+    )
+    return _JSON(
+        status_code=500,
+        content={
+            "ok": False,
+            "error": "Something went wrong on our side. Please try again in a moment.",
+            "support_id": support_id,
+        },
+    )
 
 
 # Force the browser to revalidate every static asset on every request.
@@ -228,9 +256,26 @@ def post_message(sid: str, req: ChatRequest) -> JSONResponse:
             },
         ) from viol
     except Exception as exc:
-        import traceback
-        print(f"\n=== chat_turn failed ===\n{traceback.format_exc()}", flush=True)
-        raise HTTPException(500, f"chat_turn failed: {type(exc).__name__}: {exc}") from exc
+        # Trace stays on the server (console + future log aggregator).
+        # User sees a friendly message + a support ID for correlation,
+        # never the raw Python exception type — leaking class names lets
+        # attackers map our internals.
+        support_id = f"err-{int(time.time())}-{uuid.uuid4().hex[:6]}"
+        print(
+            f"\n=== chat_turn failed ({support_id}) ===\n{traceback.format_exc()}",
+            flush=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "kind": "internal_error",
+                "message": (
+                    "We hit a problem drafting your storyboard. "
+                    "Please try again in a moment."
+                ),
+                "support_id": support_id,
+            },
+        ) from exc
     finally:
         reset_request_config(token)
     return JSONResponse({"reply": reply, **_session_view(sid)})
@@ -423,9 +468,25 @@ def run(req: RunRequest) -> JSONResponse:
         try:
             final = _graph.invoke(initial)
         except Exception as exc:
-            import traceback
-            print(f"\n=== graph failed ({type(exc).__name__}) ===\n{traceback.format_exc()}", flush=True)
-            raise HTTPException(500, f"graph failed: {type(exc).__name__}: {exc}") from exc
+            # Same pattern as the chat_turn handler above — log the full
+            # trace server-side with a correlation ID, return friendly
+            # message to the API client.
+            support_id = f"err-{int(time.time())}-{uuid.uuid4().hex[:6]}"
+            print(
+                f"\n=== graph failed ({support_id}) ===\n{traceback.format_exc()}",
+                flush=True,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "kind": "internal_error",
+                    "message": (
+                        "Generation failed. Please try again or contact "
+                        "support if it keeps happening."
+                    ),
+                    "support_id": support_id,
+                },
+            ) from exc
     finally:
         reset_request_config(token)
 
