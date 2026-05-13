@@ -1,0 +1,44 @@
+Copyright (c) 2026 Gary Yang. All rights reserved.
+
+This software and its source code (the "Software") are the proprietary work
+of the copyright holder. The Software is licensed, not sold.
+
+PERMITTED USE
+-------------
+* You may view the source code on GitHub for personal evaluation purposes.
+* You may clone the repository to your own machine for the sole purpose of
+  evaluating the Software (e.g. running it locally to assess capability).
+* You may discuss the Software publicly (blog posts, social media, code
+  reviews) with attribution to the copyright holder.
+
+PROHIBITED WITHOUT PRIOR WRITTEN PERMISSION
+-------------------------------------------
+* Commercial use of the Software, in whole or in part.
+* Distribution of the Software, modified or unmodified, to third parties.
+* Creation of derivative works that are distributed publicly or commercially.
+* Use of the Software, or any substantial portion of its source code, as
+  part of a competing commercial product or service.
+* Removal or alteration of this notice from any copy of the Software.
+
+NO WARRANTY
+-----------
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+CONTACT
+-------
+For licensing inquiries (commercial use, OEM, redistribution): please open
+an issue on the GitHub repository or reach the copyright holder directly.
+
+---
+
+Note on future re-licensing: the copyright holder reserves the right to
+release future versions of the Software under different terms, including
+an open-source license (e.g. Apache 2.0 or MIT). Any such re-licensing
+applies only to versions tagged after the re-license date — prior versions
+remain under the proprietary terms above.
