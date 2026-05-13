@@ -15,13 +15,96 @@ Sessions are read / written by `src/sessions.py`.
 """
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
+import os
 import sqlite3
 from pathlib import Path
 from typing import Any
 
+from cryptography.fernet import Fernet, InvalidToken
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / "data" / "app.db"
+
+
+# ---------------------------------------------------------------------------
+# Symmetric encryption for sensitive config values (API keys, base URLs).
+#
+# Threat model: someone gets read access to `data/app.db`. Without
+# encryption, all three customer API keys (Doubao Ark, OpenAI/Qwen, TTS)
+# leak in plain text. With encryption, they need MASTER_KEY too.
+#
+# Implementation: Fernet (AES-128-CBC + HMAC-SHA256, from `cryptography`).
+# MASTER_KEY is read from env var `SAA_MASTER_KEY` (base64 32-byte string).
+# Encrypted values are stored with `enc:` prefix so we can tell them apart
+# from legacy plaintext and migrate on read.
+#
+# Generate a key:
+#     python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+#
+# If SAA_MASTER_KEY is *not* set, we fall back to a deterministic key
+# derived from a stable string. That's NOT secure — it's there so the
+# project keeps running for take-home demos without forcing env setup.
+# Production deployment MUST set SAA_MASTER_KEY in env / vault.
+# ---------------------------------------------------------------------------
+
+_ENC_PREFIX = "enc:"
+_SENSITIVE_KEYS: frozenset[str] = frozenset({
+    "openai_api_key", "ark_api_key", "tts_api_key",
+})
+
+
+def _master_key() -> bytes:
+    raw = os.getenv("SAA_MASTER_KEY", "").strip()
+    if raw:
+        # User supplied a real Fernet key — use it.
+        return raw.encode("utf-8")
+    # Demo fallback — deterministic key derived from a fixed string so the
+    # take-home runs without env setup. NOT FOR PRODUCTION.
+    digest = hashlib.sha256(b"saudi-ad-agent-default-master-key-DO-NOT-USE-IN-PROD").digest()
+    return base64.urlsafe_b64encode(digest)
+
+
+_fernet: Fernet | None = None
+
+
+def _cipher() -> Fernet:
+    global _fernet
+    if _fernet is None:
+        _fernet = Fernet(_master_key())
+    return _fernet
+
+
+def _encrypt(value: str) -> str:
+    """Encrypt a string and tag it with `enc:` prefix."""
+    token = _cipher().encrypt(value.encode("utf-8"))
+    return _ENC_PREFIX + token.decode("utf-8")
+
+
+def _decrypt(value: str) -> str:
+    """Decrypt a value if it carries the `enc:` prefix; else return as-is.
+
+    Two reasons a value might not be encrypted:
+    * Legacy data from before this feature landed (gets re-encrypted on
+      next save).
+    * Demo / dev: the value wasn't sensitive to begin with.
+    """
+    if not isinstance(value, str) or not value.startswith(_ENC_PREFIX):
+        return value
+    token = value[len(_ENC_PREFIX):].encode("utf-8")
+    try:
+        return _cipher().decrypt(token).decode("utf-8")
+    except InvalidToken:
+        # Wrong MASTER_KEY (rotated? lost?) — fail loud so the operator
+        # knows their secrets can't be read, instead of silently returning
+        # a garbled string that would later trip an API call.
+        raise RuntimeError(
+            "Failed to decrypt a config value — likely SAA_MASTER_KEY is "
+            "wrong or has rotated. Restore the original key, or clear the "
+            "affected config row and re-enter via Settings."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -152,18 +235,43 @@ def _is_empty(v: Any) -> bool:
 
 
 def load_config() -> dict[str, Any]:
+    """Read all config rows, decrypting sensitive values transparently.
+
+    Values stored with `enc:` prefix are decrypted via Fernet. Plain
+    legacy values pass through unchanged (and get re-encrypted on the
+    next save). Callers get plaintext back either way — they never
+    have to know the wire format.
+    """
     with _connect() as conn:
         rows = conn.execute("SELECT key, value FROM config").fetchall()
     out: dict[str, Any] = {}
     for r in rows:
+        raw = r["value"]
+        # Decrypt first (if tagged), then JSON-decode the plaintext.
+        if isinstance(raw, str) and raw.startswith(_ENC_PREFIX):
+            try:
+                raw = _decrypt(raw)
+            except RuntimeError:
+                # decryption failed — surface as missing rather than crashing
+                # load_config entirely; the operator will see a "missing key"
+                # signal and can investigate.
+                continue
         try:
-            out[r["key"]] = json.loads(r["value"])
+            out[r["key"]] = json.loads(raw)
         except (TypeError, json.JSONDecodeError):
-            out[r["key"]] = r["value"]
+            out[r["key"]] = raw
     return out
 
 
 def save_config(updates: dict[str, Any], *, replace_missing: bool = True) -> None:
+    """Persist config updates, encrypting sensitive values before storage.
+
+    A key is treated as sensitive (and Fernet-encrypted) if it appears in
+    `_SENSITIVE_KEYS`. Non-sensitive keys (model IDs, base URLs, speech
+    rates) stay plain JSON. The wire format is JSON inside Fernet, so a
+    leaked `data/app.db` shows ciphertext for the secrets but readable
+    plain JSON for everything else (which lets ops debug without keys).
+    """
     filtered = {k: v for k, v in updates.items() if k in ALLOWED_KEYS}
     with _connect() as conn:
         if replace_missing:
@@ -174,6 +282,9 @@ def save_config(updates: dict[str, Any], *, replace_missing: bool = True) -> Non
             if _is_empty(v):
                 conn.execute("DELETE FROM config WHERE key = ?", (k,))
             else:
+                payload = json.dumps(v, ensure_ascii=False)
+                if k in _SENSITIVE_KEYS:
+                    payload = _encrypt(payload)
                 conn.execute(
                     """
                     INSERT INTO config (key, value, updated_at)
@@ -181,7 +292,7 @@ def save_config(updates: dict[str, Any], *, replace_missing: bool = True) -> Non
                     ON CONFLICT (key) DO UPDATE SET
                       value = excluded.value, updated_at = excluded.updated_at
                     """,
-                    (k, json.dumps(v, ensure_ascii=False)),
+                    (k, payload),
                 )
         conn.commit()
 
