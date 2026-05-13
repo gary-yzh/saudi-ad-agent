@@ -39,7 +39,10 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 # Set auto_error=False so we control the 401 response (FastAPI's default
 # raises immediately without giving us a chance to allow localhost in
 # dev mode).
-_security = HTTPBasic(auto_error=False)
+basic_security = HTTPBasic(auto_error=False)
+
+# Backwards-compat alias — earlier callers imported the private name.
+_security = basic_security
 
 
 def _expected_password() -> str:

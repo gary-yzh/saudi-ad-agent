@@ -38,8 +38,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.security import HTTPBasicCredentials
 
-from src.auth import require_admin
+from src.auth import basic_security, require_admin
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -139,11 +140,27 @@ def page_run() -> FileResponse:
 
 
 @app.get("/settings")
-def page_settings(_user: str = Depends(require_admin)) -> FileResponse:
+def page_settings(
+    request: Request,
+    creds: HTTPBasicCredentials | None = Depends(basic_security),
+) -> FileResponse:
     # ADMIN-PROTECTED. Without this gate, anyone with the public URL
     # could open /settings and read the API key form (which, even with
     # password-masked inputs, exposes the keys via "show password"
     # toggles + the underlying /api/config call the page fires).
+    #
+    # If the visitor cancels the browser's Basic Auth dialog, we don't
+    # want them staring at a raw JSON error — render a calm HTML page
+    # that bounces them back to Studio. The 401 + WWW-Authenticate is
+    # still set, so the dialog still fires on first visit.
+    try:
+        require_admin(request, creds)
+    except HTTPException:
+        return FileResponse(
+            WEB / "auth_required.html",
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="saudi-ad-agent admin"'},
+        )
     return FileResponse(WEB / "settings.html")
 
 
