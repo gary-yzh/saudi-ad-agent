@@ -363,7 +363,7 @@ This is a take-home submission. Mapping to the brief:
 | --- | :-: | --- |
 | Git repository with full source tree | ✓ | This repo |
 | README with capability matrix + quickstart | ✓ | This file |
-| Architecture diagram | ✓ | §2 Mermaid above + [docs/architecture.md](docs/architecture.md) (12-section deep-dive) |
+| Architecture diagram | ✓ | §2 Mermaid above + [docs/architecture.md](docs/architecture.md) (12-section deep-dive) + [docs/adr/](docs/adr/) (8 ADRs covering the non-obvious decisions) |
 | Working end-to-end demo | ✓ | GIF at the top of this README; reproduce via §3 Quickstart + §4 Configuration |
 | 3-min English demo script | ✓ | [docs/demo_video_script.md](docs/demo_video_script.md) |
 | Smoke test | ✓ | [tests/test_smoke.py](tests/test_smoke.py) (keyword tests always; e2e auto-skips without all 3 API keys) |
