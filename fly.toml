@@ -1,47 +1,30 @@
-# Fly.io deployment config. See https://fly.io/docs/reference/configuration/
+# fly.toml app configuration file generated for g-ads-agent on 2026-05-13T20:44:29+03:00
 #
-# Generated alongside Dockerfile during Sprint 1 close-out. Refer to
-# DEPLOY.md for the one-time setup steps (volume create, secrets set,
-# first deploy).
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-# Change this to your own app name on `flyctl launch` — must be globally
-# unique across all Fly.io apps. We use 'saudi-ad-agent' as the default
-# but you'll likely need a suffix.
-app = 'saudi-ad-agent'
-
-# Frankfurt — best balance for KSA / GCC customers (low latency over
-# Europe submarine cables) and reasonable for Doubao API roundtrip via
-# Singapore. Alternative: 'bom' (Mumbai, closer to KSA) or 'sin'
-# (Singapore, closer to Doubao). Change before first deploy.
+app = 'g-ads-agent'
 primary_region = 'fra'
 
 [build]
 
 [env]
-  # Production logs go through structlog as JSON (one event per line),
-  # ready for shipping to Datadog / Loki / Grafana Cloud. See src/log.py.
   SAA_LOG_JSON = '1'
-  # Default log level. Bump to DEBUG via `flyctl secrets set SAA_LOG_LEVEL=DEBUG`
-  # if you need verbose output without redeploying.
   SAA_LOG_LEVEL = 'INFO'
 
-# HTTP service config. Fly's edge proxy terminates TLS and forwards to
-# our container's internal port.
+[[mounts]]
+  source = 'saa_data'
+  destination = '/app/data'
+
 [http_service]
   internal_port = 8000
-  # Force HTTPS — Fly's free certificates handle this automatically.
   force_https = true
-  # Free tier: machine sleeps when idle, wakes on first request (cold
-  # start ~3s for our Python image). Acceptable for a demo / take-home.
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
   processes = ['app']
 
-  # Health check — Fly hits this to know the machine is up. We use
-  # /api/config/status because it touches SQLite + returns fast.
   [[http_service.checks]]
-    type = 'http'
     interval = '30s'
     timeout = '5s'
     grace_period = '15s'
@@ -49,16 +32,7 @@ primary_region = 'fra'
     path = '/api/config/status'
 
 [[vm]]
-  # Free tier: shared-cpu-1x + 512 MB. Enough for the planner + a few
-  # parallel Seedream calls (which are I/O bound on Doubao's API, not
-  # CPU bound on us). Upgrade to 1 GB if Seedance polling + multiple
-  # sessions push memory.
   size = 'shared-cpu-1x'
   memory = '512mb'
-
-# Persistent volume for SQLite + uploaded brand manuals + audit log.
-# Create once: `flyctl volumes create saa_data --region fra --size 1`
-# (1 GB is within the free-tier 3 GB total).
-[mounts]
-  source = 'saa_data'
-  destination = '/app/data'
+  cpus = 1
+  memory_mb = 512
