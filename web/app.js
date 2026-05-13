@@ -122,6 +122,22 @@ const STEP_ORDER = ["brief", "storyboard", "stills", "video"];
 // binding behind it, which is why the button silently no-op'd for some
 // users.
 
+// ---------- Send-button label switcher -------------------------------
+//
+// First turn (chat log is empty) → "Generate storyboard" so the user
+// knows what's about to happen. Subsequent turns are short refines
+// ("hook in Arabic", "darker background") → "Send" reads more
+// naturally for those. The single button is shared across both phases
+// so this is purely a label decision.
+function refreshSendButtonLabel() {
+  const btn = $("chat-send");
+  if (!btn) return;
+  const log = $("chat-log");
+  const empty = !log || log.children.length === 0;
+  btn.textContent = empty ? "Generate storyboard" : "Send";
+}
+
+
 // ---------- Onboarding banner ------------------------------------------
 //
 // First-run guidance: a 3-step strip above the Studio that fades to
@@ -304,6 +320,9 @@ async function refreshOnboardingBanner() {
   previewVoiceoverLocale().catch(() => {});
   // First-run onboarding strip — decide whether to show / hide on page load.
   refreshOnboardingBanner().catch(() => {});
+  // Initial send-button label — chat-log may already have items if
+  // restoreView() repopulated a saved session.
+  refreshSendButtonLabel();
 
   const stored = loadSessionId();
   if (stored) {
@@ -776,6 +795,9 @@ function renderChatMessage(role, content, payload = null) {
     `<div class="chat-bubble">${escapeHtml(content)}${chip}</div>`;
   $("chat-log").appendChild(li);
   li.scrollIntoView({ behavior: "smooth", block: "end" });
+  // Once there's any chat history, the button switches from
+  // "Generate storyboard" to "Send" for the rest of the session.
+  refreshSendButtonLabel();
   return li;
 }
 
