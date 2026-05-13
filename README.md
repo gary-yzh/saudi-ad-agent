@@ -1,4 +1,4 @@
-# E-commerce Advertising Generation AI Agent
+# Advertising Generation AI Agent
 
 > A multi-step web agent that turns a creative brief into a finished
 > 9:16 short-form video ad — storyboard, stills, voiceover, all in
