@@ -2104,27 +2104,27 @@ button.secondary:active {
    the WHOLE brief — read-order: context first, then write. Putting it
    below the input would imply "supplement after the fact", which
    misrepresents how the agent uses it. */
+/* Per-brief settings row. Each .brief-setting is a chip + its inline
+   note grouped tightly; a wider row gap separates the two settings so
+   they read as two distinct controls rather than four floating items.
+   Apple-style: information sits next to its referent — the "Optional"
+   hint hugs the Brand manual chip, the voiceover chip explains itself. */
 .chat-context-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 20px;
   margin-bottom: 12px;
   flex-wrap: wrap;
 }
-.chat-context-row .brief-assets {
-  margin: 0;
-  display: flex;
+.brief-setting {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
 }
-/* Plain prose hint beside the chip — explains what the field IS and
-   that it's optional. Apple-style: the optionality lives in the
-   description, not on the button label. */
-.chat-context-hint {
+.brief-setting-note {
   font-size: 12px;
-  line-height: 1.5;
   color: var(--muted);
-  flex: 1 1 auto;
-  min-width: 0;
+  line-height: 1;
 }
 
 /* Quieter chip variant for the attach button when it lives below the
@@ -2398,15 +2398,17 @@ button.secondary:active {
 .asset-chip-icon { font-size: 14px; }
 
 /* Voiceover-language chip — visually matches .asset-chip but wraps a
-   <select> so the whole pill is the dropdown trigger. Hover reflects
-   the same emerald affordance as the brand-manual chip on the left. */
+   <select> so the whole pill is the dropdown trigger. Unlike the
+   "+ Brand manual" chip (which uses the emerald "add this" hover to
+   signal the empty → filled transition), this chip is ALWAYS set
+   (default English), so we use a calmer hover — only a slight border
+   darken for affordance, no color shift. Apple-style: persistent
+   controls don't need an attention-grabbing hover. */
 .voiceover-chip {
   cursor: pointer;
 }
 .voiceover-chip:hover {
-  border-color: var(--emerald);
-  color: var(--emerald);
-  background: var(--emerald-light);
+  border-color: var(--border-strong);
 }
 .voiceover-chip-select {
   border: 0;

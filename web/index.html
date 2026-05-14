@@ -111,8 +111,16 @@
              first, then write) — mirrors Apple Pages document properties
              above the body, Slack pinned items above the channel input.
              "optional" lives in the hint text beside, not the button. -->
+        <!-- Per-brief settings row. Two pills carrying different weight:
+             - Brand manual: optional context the agent reads before drafting.
+               Its "(optional)" hint sits inline, next to the chip, so the
+               affordance is obvious without a separate footnote.
+             - Voiceover: a required choice with a sensible default.
+               No hint — the dropdown content speaks for itself.
+             The pair are separated by a wider gap (.brief-settings-gap)
+             so they read as two distinct controls, not a row of three. -->
         <div class="chat-context-row">
-          <div class="brief-assets" id="brief-assets">
+          <div class="brief-setting">
             <button type="button" class="asset-chip is-empty brief-attach-chip" id="pdf-chip" data-asset="pdf"
                     title="Upload a brand manual PDF. The agent reads it before drafting, to match your brand's visuals, voice, and rules.">
               <span class="asset-chip-icon">＋</span>
@@ -124,17 +132,14 @@
               </span>
               <input type="file" id="brand-rag-file" accept="application/pdf,.pdf" hidden>
             </button>
+            <span class="brief-setting-note">Optional</span>
+          </div>
 
-            <!-- Per-brief voiceover language. Sits next to brand manual
-                 because both are "settings for this ad" (the chip on the
-                 left is optional context, this chip is a required choice
-                 with a sensible default). LLM is instructed in the system
-                 prompt to ignore any language hints in the brief text and
-                 use this dropdown's value as the single source of truth. -->
+          <div class="brief-setting">
             <label class="asset-chip voiceover-chip" for="voiceover-locale-select"
                    title="Voiceover language. The narration, on-screen text, and TTS voice all follow this choice.">
               <span class="asset-chip-icon">🎙</span>
-              <span class="asset-chip-label">Voiceover:</span>
+              <span class="asset-chip-label">Voiceover</span>
               <select id="voiceover-locale-select" class="voiceover-chip-select">
                 <option value="en-US" selected>English</option>
                 <option value="zh-CN">中文</option>
@@ -142,7 +147,6 @@
               </select>
             </label>
           </div>
-          <span class="chat-context-hint">Brand manual is optional.</span>
         </div>
 
         <form id="chat-form" class="chat-form">
