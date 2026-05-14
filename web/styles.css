@@ -2402,29 +2402,50 @@ button.secondary:active {
    "+ Brand manual" chip (which uses the emerald "add this" hover to
    signal the empty → filled transition), this chip is ALWAYS set
    (default English), so we use a calmer hover — only a slight border
-   darken for affordance, no color shift. Apple-style: persistent
-   controls don't need an attention-grabbing hover. */
+   darken for affordance, no color shift.
+   Visual + functional split: a normal <span> shows the current value
+   tightly (no widest-option bloat), the real <select> sits invisibly
+   on top so click / keyboard / mobile all trigger the native picker. */
 .voiceover-chip {
+  position: relative;
   cursor: pointer;
+  /* Match brief-attach-chip dimensions so the two chips read as a pair. */
+  padding: 6px 12px;
+  font-size: 12.5px;
 }
 .voiceover-chip:hover {
   border-color: var(--border-strong);
 }
-.voiceover-chip-select {
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-weight: 500;
-  color: inherit;
-  cursor: pointer;
-  padding: 0 2px;
-  margin-left: -2px;
-  outline: none;
-}
-.voiceover-chip-select:focus-visible {
+.voiceover-chip:focus-within {
   outline: 2px solid var(--emerald);
   outline-offset: 2px;
-  border-radius: 4px;
+}
+.voiceover-current {
+  font-weight: 500;
+  color: var(--text);
+}
+.voiceover-arrow {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1;
+  margin-left: 2px;
+}
+.voiceover-chip-select {
+  /* Overlay the entire chip so click anywhere triggers the native
+     dropdown. opacity:0 keeps it accessible to screen-readers and
+     keyboard but invisible to sighted users — the .voiceover-current
+     span renders the value tightly without widest-option width bloat. */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  font: inherit;
 }
 .voiceover-chip-select option:disabled {
   color: var(--muted);

@@ -136,10 +136,20 @@
           </div>
 
           <div class="brief-setting">
+            <!-- The chip-wide chunk visible to the user is just the
+                 current selection ("English" / "中文"). The real <select>
+                 sits invisibly on top so the native dropdown still opens
+                 on click + keyboard, and a small JS handler keeps the
+                 visible label in sync. Without this, browsers size the
+                 visible <select> to the WIDEST option (the Arabic line
+                 with "(Coming soon)"), bloating the chip and leaving a
+                 wasteland between "English" and the dropdown arrow. -->
             <label class="asset-chip voiceover-chip" for="voiceover-locale-select"
                    title="Voiceover language. The narration, on-screen text, and TTS voice all follow this choice.">
-              <span class="asset-chip-icon">🎙</span>
+              <span class="asset-chip-icon" aria-hidden="true">🎙</span>
               <span class="asset-chip-label">Voiceover</span>
+              <span class="voiceover-current" id="voiceover-current-label">English</span>
+              <span class="voiceover-arrow" aria-hidden="true">▾</span>
               <select id="voiceover-locale-select" class="voiceover-chip-select">
                 <option value="en-US" selected>English</option>
                 <option value="zh-CN">中文</option>

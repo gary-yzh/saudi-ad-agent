@@ -191,6 +191,23 @@ function refreshSendButtonLabel() {
 
   // ---- Phase 1: synchronous listeners ----
 
+  // Voiceover-locale dropdown — keep the visible label in sync with
+  // the (invisible) <select>'s current value. The visible label is what
+  // sized the chip tightly; the select is overlay-positioned for native
+  // dropdown behaviour. Without this sync, the chip would still read
+  // "English" after the user picked 中文.
+  (function bindVoiceoverSelect() {
+    const sel = $("voiceover-locale-select");
+    const label = $("voiceover-current-label");
+    if (!sel || !label) return;
+    const sync = () => {
+      const opt = sel.options[sel.selectedIndex];
+      if (opt) label.textContent = opt.textContent;
+    };
+    sel.addEventListener("change", sync);
+    sync(); // initial — covers the case where the browser restored a non-default value
+  })();
+
   // Sample brief — load into textarea and focus.
   $("load-sample").addEventListener("click", () => {
     const ti = $("chat-input");
