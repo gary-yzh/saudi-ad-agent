@@ -2112,19 +2112,27 @@ button.secondary:active {
 .chat-context-row {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 36px;                  /* generous separation between the two groups */
   margin-bottom: 12px;
   flex-wrap: wrap;
 }
 .brief-setting {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+/* Force both chips to the same intrinsic height so they line up
+   regardless of icon (emoji 🎙 vs unicode ＋ render at slightly
+   different baselines). Padding stays as defined per chip variant;
+   min-height pins the box. */
+.brief-setting > .asset-chip {
+  min-height: 32px;
+  line-height: 1.4;
 }
 .brief-setting-note {
   font-size: 12px;
   color: var(--muted);
-  line-height: 1;
+  line-height: 1.4;
 }
 
 /* Quieter chip variant for the attach button when it lives below the
