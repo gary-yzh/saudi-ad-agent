@@ -2121,18 +2121,22 @@ button.secondary:active {
   align-items: center;
   gap: 10px;
 }
-/* Force both chips to identical box metrics. Specificity is 2 classes
-   (.brief-setting + .asset-chip) so this beats the single-class
-   .asset-chip / .brief-attach-chip / .voiceover-chip rules and avoids
-   the dance with which-class-was-declared-later. box-sizing:border-box
-   means min-height is the FINAL height including padding + border. */
+/* Force both chips to IDENTICAL box metrics. !important is here on
+   purpose: even at 2-class specificity, some cascaded rule was still
+   bumping the <button>-based Brand-manual chip taller than the
+   <label>-based Voiceover chip on the live deploy. Explicit fixed
+   height + zero vertical padding + flex centering removes every
+   degree of freedom (icon glyph metrics, line-height, button UA
+   defaults) that could leak a 4–10 px difference. */
 .brief-setting > .asset-chip {
-  box-sizing: border-box;
-  min-height: 36px;
-  padding: 7px 12px;
-  font-size: 13px;
-  line-height: 1.2;
-  align-items: center;
+  height: 38px !important;
+  padding: 0 14px !important;
+  box-sizing: border-box !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
 }
 .brief-setting-note {
   font-size: 12px;
