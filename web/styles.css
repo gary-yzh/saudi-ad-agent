@@ -2413,6 +2413,20 @@ button.secondary:active {
   padding: 6px 12px;
   font-size: 12.5px;
 }
+/* Reset the generic `label > span` form-field styling (uppercase /
+   block / muted / margin-bottom) that fires because this chip is a
+   <label>. Our chip's spans need to behave like inline content, not
+   like Settings-page field captions. */
+.voiceover-chip > span {
+  display: inline-flex;
+  align-items: center;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  margin: 0;
+  text-transform: none;
+  letter-spacing: normal;
+}
 .voiceover-chip:hover {
   border-color: var(--border-strong);
 }
