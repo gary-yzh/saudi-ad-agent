@@ -41,7 +41,7 @@ occasions, AOV $150+.
 "Each date, hand-picked like a jewel." — heritage + craftsmanship.
 
 3. DELIVERABLE
-Hero 9:16, ≤15 s, English voiceover with burn-in English captions.
+Hero 9:16, ≤15 s, voiceover with burn-in captions.
 
 4. VISUAL DIRECTION
 Concept: "From grove to gift" — 15 s ritual in 3 acts.
@@ -291,9 +291,8 @@ function refreshSendButtonLabel() {
   // ---- Phase 2: async work (fire-and-forget; never blocks listeners) ----
 
   refreshConfigBadge().catch((err) => console.warn("config status failed:", err));
-  // Also derive a preview of the voiceover language from the saved TTS
-  // speaker so the user sees the indicator before they even start chatting.
-  previewVoiceoverLocale().catch(() => {});
+  // Voiceover language now lives in the Brief panel dropdown (default
+  // English), so we don't need to pre-fetch the saved speaker setting.
   // Initial send-button label — chat-log may already have items if
   // restoreView() repopulated a saved session.
   refreshSendButtonLabel();
@@ -431,17 +430,22 @@ function withCacheBust(url, key) {
 // ---------- Session lifecycle ----------------------------------------------
 async function ensureSession() {
   if (SESSION_ID) return SESSION_ID;
-  // Locale is auto-derived server-side from the configured TTS speaker.
+  // Locale comes from the Voiceover dropdown in the Brief panel. The
+  // user picks once per brief (default English), the server stores it
+  // on the session, and every downstream step (LLM planner + TTS)
+  // honours that single choice.
+  const localeSelect = $("voiceover-locale-select");
+  const locale = localeSelect ? localeSelect.value : "en-US";
   const r = await fetch("/api/sessions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ locale }),
   });
   const j = await r.json();
   SESSION_ID = j.id;
   saveSessionId(SESSION_ID);
   // Reveal the voiceover-info sub-line in the Storyboard's Voiceover
-  // meta cell with the locale the server picked from the speaker setting.
+  // meta cell so the user can confirm the choice was respected.
   if (j.session?.locale) showVoiceoverInfo(j.session.locale);
   return SESSION_ID;
 }
@@ -469,38 +473,6 @@ function showVoiceoverInfo(locale) {
   el.hidden = false;
 }
 
-// Mirror of backend `_locale_from_speaker` so we can show the voiceover
-// language indicator before the user creates a session.
-function localeFromSpeakerClient(speaker) {
-  if (!speaker) return "en-US";
-  const s = String(speaker).toLowerCase();
-  if (s.startsWith("zh_") || s.startsWith("zh-")) return "zh-CN";
-  if (s.startsWith("ja_") || s.startsWith("ja-")) return "ja-JP";
-  if (s.startsWith("ko_") || s.startsWith("ko-")) return "ko-KR";
-  if (s.startsWith("ar_") || s.startsWith("ar-")) return "ar-SA";
-  if (s.startsWith("es_") || s.startsWith("es-")) return "es-MX";
-  if (s.startsWith("pt_") || s.startsWith("pt-")) return "pt-BR";
-  if (s.startsWith("id_") || s.startsWith("id-")) return "id-ID";
-  return "en-US";
-}
-
-async function previewVoiceoverLocale() {
-  // Don't override a session-bound locale that's already been shown.
-  if (SESSION_ID) return;
-  // IMPORTANT: hit the PUBLIC /api/config/status, not the admin-only
-  // /api/config. The latter returns 401 + WWW-Authenticate for any
-  // anonymous visitor, which makes the browser pop its native login
-  // dialog the moment the Studio page loads — before the user has
-  // even decided whether they want to sign in. status() exposes just
-  // the non-sensitive tts_speaker setting for this preview.
-  try {
-    const status = await fetch("/api/config/status").then((r) => r.json());
-    const locale = localeFromSpeakerClient(status?.tts_speaker);
-    showVoiceoverInfo(locale);
-  } catch {
-    /* no config yet — skip silently */
-  }
-}
 
 // Open a fresh tab. sessionStorage is per-tab, so the new tab starts with
 // nothing in storage and will create its own session on the first chat

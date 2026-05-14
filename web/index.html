@@ -124,13 +124,30 @@
               </span>
               <input type="file" id="brand-rag-file" accept="application/pdf,.pdf" hidden>
             </button>
+
+            <!-- Per-brief voiceover language. Sits next to brand manual
+                 because both are "settings for this ad" (the chip on the
+                 left is optional context, this chip is a required choice
+                 with a sensible default). LLM is instructed in the system
+                 prompt to ignore any language hints in the brief text and
+                 use this dropdown's value as the single source of truth. -->
+            <label class="asset-chip voiceover-chip" for="voiceover-locale-select"
+                   title="Voiceover language. The narration, on-screen text, and TTS voice all follow this choice.">
+              <span class="asset-chip-icon">🎙</span>
+              <span class="asset-chip-label">Voiceover:</span>
+              <select id="voiceover-locale-select" class="voiceover-chip-select">
+                <option value="en-US" selected>English</option>
+                <option value="zh-CN">中文</option>
+                <option value="ar-SA" disabled>العربية / Arabic (Coming soon)</option>
+              </select>
+            </label>
           </div>
-          <span class="chat-context-hint">Optional — tunes output to your brand.</span>
+          <span class="chat-context-hint">Brand manual is optional.</span>
         </div>
 
         <form id="chat-form" class="chat-form">
           <div class="chat-input-wrap">
-            <textarea id="chat-input" rows="4" placeholder="Type your brief, or answer the agent's question. Press Enter to send · Shift+Enter for a new line."></textarea>
+            <textarea id="chat-input" rows="4" placeholder="Type your brief — audience, message, visuals, tone. Voiceover language is set above ↑"></textarea>
             <!-- Toggle compact ↔ expanded textarea height. After the first
                  storyboard arrives, the textarea collapses to a small height
                  (most replies are short refines); click this to expand back
@@ -178,15 +195,12 @@
               <span class="info-tip" data-tip="The narration spoken over the ad. Doubao TTS reads this in the language picked when the brief started.">?</span>
             </span>
             <span id="sb-vo">—</span>
-            <!-- Sub-line under the voiceover preview text: which language
-                 the TTS engine will read in, with a one-click jump to
-                 change the speaker. Lives here (inside the Voiceover
-                 meta cell) because this is the first place the voiceover
-                 surfaces — info next to its referent, just-in-time, and
-                 well before TTS actually fires at "Generate video". -->
+            <!-- Sub-line under the voiceover preview text confirming the
+                 language. The choice itself was made earlier in the Brief
+                 panel's Voiceover dropdown — this is just a "your pick was
+                 respected" affirmation surfaced next to the narration. -->
             <p id="voiceover-info" class="form-hint" hidden>
               Voiceover will be in <strong id="voiceover-info-lang">English (US)</strong>
-              <a href="/settings#tts_speaker_row">change speaker</a>
             </p>
           </div>
           <!-- Total duration = sum of each shot's duration_s, clamped to

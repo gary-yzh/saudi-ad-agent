@@ -39,7 +39,27 @@ TTS_URL_DEFAULT = "https://openspeech.bytedance.com/api/v3/tts/unidirectional"
 IMAGE_MODEL_DEFAULT = "doubao-seedream-5-0-260128"
 VIDEO_MODEL_DEFAULT = "doubao-seedance-2-0-260128"
 TTS_RESOURCE_ID_DEFAULT = "seed-tts-2.0"
-TTS_SPEAKER_DEFAULT = "zh_female_shuangkuaisisi_moon_bigtts"
+TTS_SPEAKER_DEFAULT = "en_male_tim_uranus_bigtts"
+
+# Forward mapping: locale → Doubao TTS speaker ID. This is the source of
+# truth for the Studio's Voiceover dropdown — picking "English" in the
+# dropdown sends locale="en-US", which we resolve here to a concrete
+# speaker. Keep in sync with the dropdown options in web/index.html.
+#
+# Arabic is intentionally absent — Doubao BigTTS officially supports
+# only zh / en / ja / es-mx / id / pt-br / de / fr. Arabic is marked
+# "Coming soon" in the UI and the option is disabled. If a request
+# somehow arrives with locale=ar-SA, we fall through to the English
+# default below so the pipeline doesn't break.
+LOCALE_TO_SPEAKER = {
+    "en-US": "en_male_tim_uranus_bigtts",
+    "zh-CN": "zh_female_shuangkuaisisi_moon_bigtts",
+}
+
+
+def speaker_from_locale(locale: Optional[str]) -> str:
+    """Resolve a locale string (e.g. 'en-US') to a Doubao speaker ID."""
+    return LOCALE_TO_SPEAKER.get(locale or "", TTS_SPEAKER_DEFAULT)
 TTS_FORMAT_DEFAULT = "mp3"
 TTS_SAMPLE_RATE_DEFAULT = 24000
 
@@ -478,7 +498,15 @@ def seed_speech_generate(
     if not text:
         raise RuntimeError("TTS got empty text")
 
-    speaker = cfg_get("tts_speaker", env_var="TTS_SPEAKER", default=voice or TTS_SPEAKER_DEFAULT)
+    # Priority: explicit `voice` arg → locale-derived → legacy cfg/env → default.
+    # The Studio passes locale on session creation, so locale-derived is the
+    # common path. Direct API callers can still override via `voice` or cfg.
+    if voice:
+        speaker = voice
+    elif locale and locale in LOCALE_TO_SPEAKER:
+        speaker = LOCALE_TO_SPEAKER[locale]
+    else:
+        speaker = cfg_get("tts_speaker", env_var="TTS_SPEAKER", default=TTS_SPEAKER_DEFAULT)
     resource_id = cfg_get(
         "tts_resource_id", env_var="TTS_RESOURCE_ID", default=TTS_RESOURCE_ID_DEFAULT
     )

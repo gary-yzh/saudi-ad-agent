@@ -2397,6 +2397,38 @@ button.secondary:active {
 }
 .asset-chip-icon { font-size: 14px; }
 
+/* Voiceover-language chip — visually matches .asset-chip but wraps a
+   <select> so the whole pill is the dropdown trigger. Hover reflects
+   the same emerald affordance as the brand-manual chip on the left. */
+.voiceover-chip {
+  cursor: pointer;
+}
+.voiceover-chip:hover {
+  border-color: var(--emerald);
+  color: var(--emerald);
+  background: var(--emerald-light);
+}
+.voiceover-chip-select {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 500;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  margin-left: -2px;
+  outline: none;
+}
+.voiceover-chip-select:focus-visible {
+  outline: 2px solid var(--emerald);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.voiceover-chip-select option:disabled {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .asset-chip-loaded-wrap {
   display: inline-flex;
   align-items: center;

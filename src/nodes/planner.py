@@ -17,9 +17,9 @@ a previous attempt, produce ONE short-form vertical video concept.
 
 Return STRICT JSON with this shape:
 {{
-  "hook":           "<= 8 words, English",
-  "body":           "1-2 sentences, English",
-  "cta":            "<= 5 words, English",
+  "hook":           "<= 8 words, {language}",
+  "body":           "1-2 sentences, {language}",
+  "cta":            "<= 5 words, {language}",
   "visual_prompt":  "image-gen prompt — describe scene, lighting, framing, palette",
   "motion_prompt":  "video-gen prompt — describe camera move + motion in 1 sentence",
   "voiceover":      "{voiceover_instruction}",
@@ -29,31 +29,39 @@ Return STRICT JSON with this shape:
 Rules:
 - Respect every brand constraint passed in.
 - {voiceover_rule}
+- LANGUAGE OVERRIDE: hook / body / cta / voiceover MUST all be in {language},
+  regardless of what language the brief mentions. The brief author may have
+  written "English voiceover" or similar — IGNORE that. The voiceover
+  language is locked to {language} by the user's separate UI selection.
+  Do not mention this conflict; just write everything in {language}.
 - No alcohol, no pork, no gambling, no comparative claims naming competitors.
 - During Ramadan briefs, evoke family/generosity, not discount urgency.
 - Output ONLY the JSON object, no commentary.
 """
 
 
-# Map a locale prefix to the voiceover language we ask the planner to use.
+# Map a locale prefix to (voiceover_instruction, voiceover_rule, voice_example,
+# language_name). language_name is the human-readable label injected into the
+# hook/body/cta schema fields and the LANGUAGE OVERRIDE rule.
 # Keep this list in sync with what the chosen TTS speaker can actually pronounce.
 _VOICEOVER_LANGS = {
-    "ar": ("Arabic line, RTL, max 12 words", "Arabic only", "ar-SA-female-warm"),
-    "en": ("English line, max 12 words", "Voiceover MUST be in English", "en-US-male-warm"),
-    "zh": ("Chinese line, max 24 characters", "Voiceover MUST be in Chinese", "zh-CN-female-warm"),
-    "ja": ("Japanese line, max 24 characters", "Voiceover MUST be in Japanese", "ja-JP-female-warm"),
-    "es": ("Spanish line, max 12 words", "Voiceover MUST be in Spanish", "es-ES-female-warm"),
-    "fr": ("French line, max 12 words", "Voiceover MUST be in French", "fr-FR-female-warm"),
+    "ar": ("Arabic line, RTL, max 12 words", "Arabic only", "ar-SA-female-warm", "Arabic"),
+    "en": ("English line, max 12 words", "Voiceover MUST be in English", "en-US-male-warm", "English"),
+    "zh": ("Chinese line, max 24 characters", "Voiceover MUST be in Chinese", "zh-CN-female-warm", "Chinese"),
+    "ja": ("Japanese line, max 24 characters", "Voiceover MUST be in Japanese", "ja-JP-female-warm", "Japanese"),
+    "es": ("Spanish line, max 12 words", "Voiceover MUST be in Spanish", "es-ES-female-warm", "Spanish"),
+    "fr": ("French line, max 12 words", "Voiceover MUST be in French", "fr-FR-female-warm", "French"),
 }
 
 
 def _system_prompt_for_locale(locale: str) -> str:
-    code = (locale or "ar-SA").split("-", 1)[0].lower()
-    instr, rule, example = _VOICEOVER_LANGS.get(code, _VOICEOVER_LANGS["ar"])
+    code = (locale or "en-US").split("-", 1)[0].lower()
+    instr, rule, example, language = _VOICEOVER_LANGS.get(code, _VOICEOVER_LANGS["en"])
     return SYSTEM_PROMPT_TEMPLATE.format(
         voiceover_instruction=instr,
         voiceover_rule=rule,
         voice_example=example,
+        language=language,
     )
 
 
@@ -73,14 +81,14 @@ def planner_node(state: AgentState) -> dict[str, Any]:
 
     user_msg = (
         f"BRIEF:\n{state['brief']}\n\n"
-        f"LOCALE: {state.get('locale', 'ar-SA')}\n"
+        f"LOCALE: {state.get('locale', 'en-US')}\n"
         f"TARGET AUDIENCE: {state.get('target_audience', 'Saudi adults 25-45')}\n\n"
         f"BRAND CONSTRAINTS:\n{constraints}"
         f"{revision_block}"
     )
 
     storyboard = call_claude(
-        system=_system_prompt_for_locale(state.get("locale", "ar-SA")),
+        system=_system_prompt_for_locale(state.get("locale", "en-US")),
         user=user_msg,
         json_mode=True,
     )

@@ -240,16 +240,18 @@ def get_audit_log(
 
 
 class CreateSessionRequest(BaseModel):
-    # Locale is derived from the saved TTS speaker so the planner writes
-    # voiceover in a language the speaker can actually pronounce.
-    # Clients may still send a value (advanced override), but the server
-    # ignores it unless the speaker is unset.
+    # Locale = the voiceover language the user picked in the Studio's
+    # Voiceover dropdown (per-brief decision, not a global setting).
+    # The server maps it to a TTS speaker via _speaker_from_locale.
+    # If not provided, falls back to en-US.
     locale: Optional[str] = None
     target_audience: str = "Saudi adults 25-45, parents, urban"
 
 
 # Map a Doubao speaker ID to a sensible IETF locale based on its prefix.
-# Keep this list aligned with the speakers users actually paste into Settings.
+# Kept for backwards compat with older sessions / advanced users who set
+# tts_speaker via env var. The forward path is the dropdown in the Studio,
+# which picks a locale directly — see _speaker_from_locale below.
 def _locale_from_speaker(speaker: str | None) -> str:
     if not speaker:
         return "en-US"
@@ -270,6 +272,13 @@ def _locale_from_speaker(speaker: str | None) -> str:
         return "id-ID"
     # en_*, multilingual speakers, or unknown prefix → English (US)
     return "en-US"
+
+
+# NOTE: locale → speaker mapping lives in src/tools/bytedance_apis.py
+# (LOCALE_TO_SPEAKER + speaker_from_locale), since that's where the TTS
+# call resolves the speaker. The server doesn't need to look it up — the
+# Studio's Voiceover dropdown sends a locale on session creation, and
+# bytedance_apis resolves it at TTS time.
 
 
 class ChatRequest(BaseModel):
@@ -331,9 +340,10 @@ def _session_view(session_id: str) -> dict[str, Any]:
 @app.post("/api/sessions", dependencies=[Depends(require_user)])
 def create_session(req: CreateSessionRequest) -> JSONResponse:
     sid = sessions.new_session_id()
-    cfg = storage.load_config()
-    auto_locale = _locale_from_speaker(cfg.get("tts_speaker"))
-    locale = req.locale or auto_locale  # client override only used if no speaker set
+    # Locale comes from the Studio's Voiceover dropdown (per-brief choice).
+    # Falls back to en-US if the client didn't send one (e.g. an old client
+    # or an API caller bypassing the UI).
+    locale = req.locale or "en-US"
     storage.create_session(
         session_id=sid, locale=locale, target_audience=req.target_audience
     )

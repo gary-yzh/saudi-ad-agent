@@ -194,10 +194,11 @@
             </select>
           </label>
         </div>
-        <label class="api-label" id="tts_speaker_row">
-          <span>Speaker (voice ID)</span>
-          <input id="tts_speaker" name="tts_speaker" type="text" placeholder="zh_female_shuangkuaisisi_moon_bigtts">
-        </label>
+        <!-- Speaker (voice ID) used to live here as a free-text input.
+             Removed 2026-05-14: the choice is per-brief, not a global
+             setting — moved to the Voiceover dropdown in the Studio's
+             Brief panel. Power users can still override via the
+             TTS_SPEAKER env var on the server. -->
         <!-- Speech rate + loudness used to hide behind an "Advanced settings"
              details fold. With emotion / emotion_scale removed (they were
              per-brief decisions, not global config), only two fields remained
