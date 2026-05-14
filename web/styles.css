@@ -2121,13 +2121,18 @@ button.secondary:active {
   align-items: center;
   gap: 10px;
 }
-/* Force both chips to the same intrinsic height so they line up
-   regardless of icon (emoji 🎙 vs unicode ＋ render at slightly
-   different baselines). Padding stays as defined per chip variant;
-   min-height pins the box. */
+/* Force both chips to identical box metrics. Specificity is 2 classes
+   (.brief-setting + .asset-chip) so this beats the single-class
+   .asset-chip / .brief-attach-chip / .voiceover-chip rules and avoids
+   the dance with which-class-was-declared-later. box-sizing:border-box
+   means min-height is the FINAL height including padding + border. */
 .brief-setting > .asset-chip {
-  min-height: 32px;
-  line-height: 1.4;
+  box-sizing: border-box;
+  min-height: 36px;
+  padding: 7px 12px;
+  font-size: 13px;
+  line-height: 1.2;
+  align-items: center;
 }
 .brief-setting-note {
   font-size: 12px;
