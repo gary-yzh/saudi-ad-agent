@@ -383,7 +383,7 @@ This is a take-home submission. Mapping to the brief:
 
 ### Notable product decision: Settings-tier ↔ Storyboard-tier separation
 
-Three fields originally lived in Settings as "global config" but were
+Four fields originally lived in Settings as "global config" but were
 actually per-brief creative decisions in disguise. Removed:
 
 | Field | Why it was wrong | Where it lives now |
@@ -391,10 +391,11 @@ actually per-brief creative decisions in disguise. Removed:
 | `video_duration` | Ad length is content-driven (N shots × their `duration_s`), not a global preference. Forcing 5 s when the storyboard says 23 s makes Seedance compress the content. | Storyboard panel shows live total + clamp note (e.g. "12 s · sweet spot ✓" or "15 s · capped from 23.0 s"). Change duration by editing the brief or chatting with the planner. |
 | `tts_emotion` | One brand runs both 6 s urgency ads and 12 s reflective ads — locking emotion globally is a category error. | Fixed at `neutral`. Tone variation is expressed via the voiceover *text* the planner writes from the brief's TONE field (joyful copy → joyful read even on a neutral voice). |
 | `tts_emotion_scale` | Same — pairs with emotion. | Removed. |
+| `tts_speaker` | Voiceover language is a per-brief decision — same Studio runs ads for KSA (Arabic later), Gulf English, and China zh; locking the speaker globally forces a Settings round-trip every time a brief switches market. | Brief panel "Voiceover" dropdown next to the brand-manual chip. Default English (`en_male_tim_uranus_bigtts`); Chinese second; Arabic disabled "Coming soon" — Doubao BigTTS does not currently ship Arabic speakers. |
 
 Settings now contains **only** what's truly global (API endpoints,
-model IDs, ratios, sizes, brand voice ID, audio levels). This is a
-small change but a real product mistake worth flagging.
+model IDs, ratios, sizes, audio levels). This is a small change but a
+real product mistake worth flagging.
 
 ### How a reviewer verifies this in 2 minutes
 
