@@ -146,7 +146,19 @@
                  wasteland between "English" and the dropdown arrow. -->
             <label class="asset-chip voiceover-chip" for="voiceover-locale-select"
                    title="Voiceover language. The narration, on-screen text, and TTS voice all follow this choice.">
-              <span class="asset-chip-icon" aria-hidden="true">🎙</span>
+              <!-- Inline SVG mic icon instead of 🎙 emoji: the emoji uses
+                   the OS emoji font (Segoe UI Emoji on Win, Apple Color
+                   Emoji on Mac), which has different vertical metrics
+                   than Inter — making the icon look misaligned with the
+                   Brand-manual chip's ＋ glyph even when the chip BOXES
+                   are pixel-aligned. SVG icon renders consistently. -->
+              <svg class="asset-chip-icon voiceover-icon" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
               <span class="asset-chip-label">Voiceover</span>
               <span class="voiceover-current" id="voiceover-current-label">English</span>
               <span class="voiceover-arrow" aria-hidden="true">▾</span>

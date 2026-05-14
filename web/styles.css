@@ -2430,6 +2430,15 @@ button.secondary:active {
   padding: 6px 12px;
   font-size: 12.5px;
 }
+.voiceover-icon {
+  /* SVG mic glyph — sized to match the visual weight of the ＋ glyph
+     in the Brand-manual chip. Stroke colour follows currentColor so
+     the icon picks up the muted text colour from .brief-attach-chip. */
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
 /* Reset the generic `label > span` form-field styling (uppercase /
    block / muted / margin-bottom) that fires because this chip is a
    <label>. Our chip's spans need to behave like inline content, not
