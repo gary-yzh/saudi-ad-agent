@@ -541,7 +541,7 @@ function restoreView(view) {
     // After reload, if a storyboard already exists, the chat input should
     // reflect the "refine, or confirm below" mode — not the initial-brief
     // placeholder. Without this, users coming back to a session see a
-    // placeholder that says "Type your brief" which is no longer accurate.
+    // placeholder that says "Write your brief" which is no longer accurate.
     $("chat-input").placeholder =
       "Refine the storyboard, or click Confirm below to generate stills.";
     // Same compact mode as fresh storyboard arrival.
